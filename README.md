@@ -102,13 +102,7 @@ cd CivicLens
 
 ## �️ **Roadmap**
 
-- [x] **Day 1:** Project initialization
-- [ ] **Day 2:** FastAPI backend skeleton
-- [ ] **Day 3:** Policy upload + storage
-- [ ] **Day 4:** LLM integration (RAG pipeline)
-- [ ] **Day 5:** React frontend foundation
-- [ ] **Day 6:** Eligibility inference engine
-- [ ] **Day 7:** Blockchain proof-of-awareness (mock)
+- [x] **Day 1:** Project initialization and FastAPI backend skeleton
 
 ---
 
