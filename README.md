@@ -92,7 +92,7 @@ CivicLens/
 ### Quick Start
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/CivicLens.git
+git clone https://github.com/suprithh7/CivicLens.git
 cd CivicLens
 
 # Setup will be added in upcoming commits
