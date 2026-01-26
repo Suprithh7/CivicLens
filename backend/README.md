@@ -1,142 +1,180 @@
-# CivicLens AI - Backend
+# CivicLens Backend API
 
-FastAPI backend for CivicLens AI platform.
+## Overview
 
-## 🏗️ Architecture
+FastAPI-based backend for CivicLens AI - an AI-powered platform to translate government policies into personalized, multilingual guidance.
 
-```
-app/
-├── main.py              # FastAPI app entry point
-├── config.py            # Configuration management
-├── api/
-│   └── v1/
-│       ├── router.py    # API v1 router
-│       └── endpoints/   # API endpoints
-│           └── health.py
-├── core/
-│   └── dependencies.py  # Shared dependencies
-├── models/              # SQLAlchemy ORM models
-├── schemas/             # Pydantic schemas
-│   └── health.py
-└── services/            # Business logic layer
-```
+## Features
 
-## 🚀 Quick Start
+- ✅ RESTful API with FastAPI
+- ✅ Health check endpoint
+- ✅ Configuration management with Pydantic Settings
+- ✅ CORS support for frontend integration
+- ✅ Auto-generated API documentation (Swagger & ReDoc)
+- ✅ Modular architecture following best practices
 
-### 1. Setup Virtual Environment
+## Quick Start
 
-```bash
-cd backend
-python -m venv venv
+### Prerequisites
 
-# Windows
-venv\Scripts\activate
+- Python 3.9+
+- PostgreSQL (optional, for database features)
 
-# Linux/Mac
-source venv/bin/activate
-```
+### Installation
 
-### 2. Install Dependencies
+1. **Navigate to backend directory:**
+   ```bash
+   cd backend
+   ```
 
-```bash
-pip install -r requirements.txt
-```
+2. **Create and activate virtual environment:**
+   ```bash
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1  # Windows
+   source venv/bin/activate      # Linux/Mac
+   ```
 
-### 3. Configure Environment
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```bash
-# Copy example env file
-copy .env.example .env
+4. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
 
-# Edit .env with your settings
-```
-
-### 4. Run Development Server
+### Running the Server
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 5. Test the API
-
-Open your browser:
-- **API Docs (Swagger):** http://localhost:8000/docs
-- **Alternative Docs (ReDoc):** http://localhost:8000/redoc
+The API will be available at:
+- **API Root:** http://localhost:8000/
 - **Health Check:** http://localhost:8000/api/v1/health
+- **Swagger Docs:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc
 
-## 📡 API Endpoints
+## Project Structure
 
-### Current Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Root endpoint |
-| GET | `/api/v1/health` | Health check |
-
-### Coming Soon
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/policies/upload` | Upload policy PDF |
-| GET | `/api/v1/policies` | List all policies |
-| POST | `/api/v1/eligibility/check` | Check eligibility |
-
-## 🧪 Testing
-
-```bash
-# Run tests (coming soon)
-pytest tests/
+```
+backend/
+├── app/
+│   ├── main.py              # Application entry point
+│   ├── config.py            # Configuration management
+│   ├── api/
+│   │   └── v1/
+│   │       ├── router.py    # API v1 router
+│   │       └── endpoints/
+│   │           └── health.py # Health check endpoint
+│   ├── schemas/
+│   │   └── health.py        # Pydantic schemas
+│   ├── models/              # Database models
+│   ├── services/            # Business logic
+│   └── core/                # Core utilities
+├── .env                     # Environment variables (not in git)
+├── .env.example             # Example environment file
+├── requirements.txt         # Python dependencies
+└── README.md               # This file
 ```
 
-## 📦 Project Structure Explained
+## API Endpoints
 
-- **`main.py`**: FastAPI app initialization, CORS, middleware
-- **`config.py`**: Environment-based configuration using Pydantic
-- **`api/v1/`**: API version 1 (allows future v2, v3)
-- **`endpoints/`**: Route handlers (controllers)
-- **`schemas/`**: Request/response models (Pydantic)
-- **`models/`**: Database models (SQLAlchemy)
-- **`services/`**: Business logic (keeps routes thin)
-- **`core/`**: Shared utilities and dependencies
+### Health Check
+```
+GET /api/v1/health
+```
 
-## 🔧 Development Guidelines
+**Response:**
+```json
+{
+  "status": "healthy",
+  "app_name": "CivicLens AI",
+  "version": "0.1.0",
+  "environment": "development"
+}
+```
 
-### Adding a New Endpoint
+## Configuration
 
-1. Create schema in `schemas/`
-2. Create endpoint in `api/v1/endpoints/`
-3. Register in `api/v1/router.py`
-4. Add business logic in `services/` (if complex)
+Environment variables can be set in the `.env` file:
 
-### Example:
+```env
+# Application
+APP_NAME=CivicLens AI
+APP_VERSION=0.1.0
+ENVIRONMENT=development
+
+# Server
+HOST=0.0.0.0
+PORT=8000
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/civiclens_dev
+
+# CORS (comma-separated origins)
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+```
+
+## Development
+
+### Adding New Endpoints
+
+1. Create endpoint file in `app/api/v1/endpoints/`
+2. Define Pydantic schemas in `app/schemas/`
+3. Register router in `app/api/v1/router.py`
+
+Example:
+```python
+# app/api/v1/endpoints/example.py
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/example")
+async def example_endpoint():
+    return {"message": "Hello World"}
+```
 
 ```python
-# schemas/policy.py
-class PolicyCreate(BaseModel):
-    title: str
-    content: str
+# app/api/v1/router.py
+from app.api.v1.endpoints import example
 
-# api/v1/endpoints/policies.py
-@router.post("/policies")
-async def create_policy(policy: PolicyCreate):
-    return {"message": "Policy created"}
-
-# api/v1/router.py
-from app.api.v1.endpoints import policies
-api_router.include_router(policies.router, tags=["Policies"])
+api_router.include_router(
+    example.router,
+    prefix="/example",
+    tags=["Example"]
+)
 ```
 
-## 🌍 Environment Variables
+### Running Tests
 
-See `.env.example` for all available configuration options.
+```bash
+pytest
+```
 
-## 📚 Tech Stack
+## Tech Stack
 
-- **FastAPI**: Modern, fast web framework
-- **Pydantic**: Data validation
-- **SQLAlchemy**: ORM for PostgreSQL
-- **Uvicorn**: ASGI server
+- **FastAPI** - Modern, fast web framework
+- **Pydantic** - Data validation using Python type annotations
+- **Uvicorn** - ASGI server
+- **SQLAlchemy** - SQL toolkit and ORM
+- **PostgreSQL** - Database
+- **Alembic** - Database migrations
 
----
+## License
 
-**Built for Day 2 of CivicLens AI** 🚀
+MIT License - See LICENSE file for details
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## Support
+
+For issues and questions, please open an issue on GitHub.
