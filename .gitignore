@@ -68,3 +68,6 @@ embeddings/
 # Blockchain
 .secret
 *.key
+
+# Uploads
+uploads/

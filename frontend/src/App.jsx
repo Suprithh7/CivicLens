@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import PolicyUpload from './components/PolicyUpload';
 import { checkHealth } from './services/api';
 
 function App() {
@@ -57,6 +58,11 @@ function App() {
               Learn More
             </button>
           </div>
+        </div>
+
+        {/* Policy Upload Section */}
+        <div className="mb-8">
+          <PolicyUpload />
         </div>
 
         {/* Features Grid */}
