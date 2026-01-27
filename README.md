@@ -114,11 +114,7 @@ We welcome contributions! See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidel
 
 ## 📜 **License**
 
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## 🌟 **Vision**
+MIT License - see [LICENSE](LICENSE) for details
 
 **By 2027, CivicLens AI should help 10 million citizens access benefits they didn't know existed.**
 
