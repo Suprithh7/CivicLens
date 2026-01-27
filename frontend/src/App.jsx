@@ -1,8 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import { checkHealth } from './services/api';
 
 function App() {
+  const [apiStatus, setApiStatus] = useState({
+    loading: true,
+    connected: false,
+    data: null,
+    error: null
+  });
+
+  useEffect(() => {
+    // Test API connection on component mount
+    const testConnection = async () => {
+      try {
+        const healthData = await checkHealth();
+        setApiStatus({
+          loading: false,
+          connected: true,
+          data: healthData,
+          error: null
+        });
+      } catch (error) {
+        setApiStatus({
+          loading: false,
+          connected: false,
+          data: null,
+          error: error.message
+        });
+      }
+    };
+
+    testConnection();
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
@@ -69,10 +101,42 @@ function App() {
         {/* API Status */}
         <div className="mt-8 bg-white rounded-lg shadow-md p-6">
           <h3 className="text-xl font-semibold text-gray-800 mb-4">System Status</h3>
-          <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-gray-600">Backend API: Connected</span>
-          </div>
+
+          {apiStatus.loading ? (
+            <div className="flex items-center space-x-3">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+              <span className="text-gray-600">Checking backend connection...</span>
+            </div>
+          ) : apiStatus.connected ? (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-gray-600">Backend API: Connected ✓</span>
+              </div>
+              {apiStatus.data && (
+                <div className="ml-6 text-sm text-gray-500 space-y-1">
+                  <p>Status: <span className="font-semibold text-green-600">{apiStatus.data.status}</span></p>
+                  <p>App: {apiStatus.data.app_name} v{apiStatus.data.version}</p>
+                  <p>Environment: {apiStatus.data.environment}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <span className="text-gray-600">Backend API: Disconnected ✗</span>
+              </div>
+              {apiStatus.error && (
+                <div className="ml-6 text-sm text-red-600">
+                  Error: {apiStatus.error}
+                </div>
+              )}
+              <div className="ml-6 text-sm text-gray-500">
+                Make sure the backend server is running on http://localhost:8000
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
