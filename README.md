@@ -122,4 +122,4 @@ This is not just a project. It's a public infrastructure for government transpar
 
 ---
 
-**Built with ❤️ for citizens who deserve clarity, not complexity.**
+**Built with ❤️ for citizens who deserve clarity, not complexity.**zombie
