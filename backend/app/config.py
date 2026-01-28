@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/civiclens_dev"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./civiclens.db"
     
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"

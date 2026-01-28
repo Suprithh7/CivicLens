@@ -1,12 +1,9 @@
 """
 Shared dependencies for dependency injection.
-Future: Database sessions, authentication, etc.
+Includes database sessions, authentication, etc.
 """
 
-# Example: Database session dependency (to be implemented)
-# async def get_db():
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
+from app.core.database import get_db
+
+# Re-export for easy imports
+__all__ = ["get_db"]
