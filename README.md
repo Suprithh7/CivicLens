@@ -122,6 +122,6 @@ This is not just a project. It's a public infrastructure for government transpar
 
 ---
 
-**Built with ❤️ for citizens who deserve clarity, not complexity.**batman
+**Built with ❤️ for citizens who deserve clarity, not complexity.**batman 2
 
 
