@@ -211,8 +211,9 @@ contract ProofOfAwareness {
 
 **Phase 1: Local Development** (Days 1-7)
 - Docker Compose for all services
-- SQLite → PostgreSQL migration
+- SQLite database for rapid development
 - Mock blockchain (in-memory)
+
 
 **Phase 2: Cloud Pilot** (Week 2-3)
 - Deploy to AWS/GCP
