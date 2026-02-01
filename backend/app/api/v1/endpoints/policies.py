@@ -20,6 +20,9 @@ import uuid
 import hashlib
 from pathlib import Path
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -81,8 +84,11 @@ async def upload_policy(
         HTTPException: If file validation fails or upload errors occur
     """
     
+    logger.info(f"Starting policy upload: {file.filename}")
+    
     # Validate file
     validate_pdf(file)
+    logger.debug(f"File validation passed for: {file.filename}")
     
     # Generate unique ID and filename
     policy_id = f"pol_{uuid.uuid4().hex[:12]}"
@@ -94,6 +100,7 @@ async def upload_policy(
         # Read file content
         content = await file.read()
         file_size = len(content)
+        logger.debug(f"File read successfully: {file_size} bytes")
         
         # Check file size
         if file_size > MAX_FILE_SIZE:
@@ -137,6 +144,8 @@ async def upload_policy(
         await db.commit()
         await db.refresh(db_policy)
         
+        logger.info(f"Policy uploaded successfully: {policy_id} ({file.filename})")
+        
         # Create response
         return PolicyUploadResponse(
             id=db_policy.id,
@@ -153,11 +162,13 @@ async def upload_policy(
         # Clean up file if it was created
         if file_path.exists():
             file_path.unlink()
+        logger.warning(f"Policy upload failed (validation): {file.filename}")
         raise
     except Exception as e:
         # Clean up file if it was created
         if file_path.exists():
             file_path.unlink()
+        logger.error(f"Policy upload failed: {file.filename}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload file: {str(e)}"
@@ -194,6 +205,7 @@ async def list_policies(
     Returns:
         PolicyListResponse: Paginated list of policies
     """
+    logger.info(f"Listing policies: limit={limit}, offset={offset}, status={status_filter}, type={policy_type}")
     
     # Build query
     query = select(Policy).where(Policy.deleted_at.is_(None))
@@ -217,6 +229,8 @@ async def list_policies(
     # Execute query
     result = await db.execute(query)
     policies = result.scalars().all()
+    
+    logger.info(f"Found {len(policies)} policies (total: {total})")
     
     return PolicyListResponse(
         policies=[PolicyPublic.model_validate(p) for p in policies],
@@ -249,6 +263,7 @@ async def get_policy(
     Raises:
         HTTPException: If policy not found
     """
+    logger.info(f"Fetching policy: {policy_id}")
     stmt = select(Policy).where(
         Policy.policy_id == policy_id,
         Policy.deleted_at.is_(None)
@@ -257,11 +272,13 @@ async def get_policy(
     policy = result.scalar_one_or_none()
     
     if not policy:
+        logger.warning(f"Policy not found: {policy_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Policy with ID '{policy_id}' not found"
         )
     
+    logger.debug(f"Policy found: {policy_id}")
     return PolicyPublic.model_validate(policy)
 
 
@@ -285,6 +302,7 @@ async def delete_policy(
     Raises:
         HTTPException: If policy not found
     """
+    logger.info(f"Deleting policy: {policy_id}")
     stmt = select(Policy).where(
         Policy.policy_id == policy_id,
         Policy.deleted_at.is_(None)
@@ -293,6 +311,7 @@ async def delete_policy(
     policy = result.scalar_one_or_none()
     
     if not policy:
+        logger.warning(f"Policy not found for deletion: {policy_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Policy with ID '{policy_id}' not found"
@@ -303,3 +322,4 @@ async def delete_policy(
     policy.updated_at = datetime.utcnow()
     
     await db.commit()
+    logger.info(f"Policy deleted successfully: {policy_id}")
