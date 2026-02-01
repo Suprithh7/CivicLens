@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PolicyUpload from './components/PolicyUpload';
+import PolicyList from './components/PolicyList';
 import { checkHealth } from './services/api';
 
 function App() {
@@ -11,6 +12,8 @@ function App() {
     data: null,
     error: null
   });
+
+  const [activeTab, setActiveTab] = useState('browse'); // 'upload' or 'browse'
 
   useEffect(() => {
     // Test API connection on component mount
@@ -60,13 +63,50 @@ function App() {
           </div>
         </div>
 
-        {/* Policy Upload Section */}
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('browse')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'browse'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  Browse Policies
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('upload')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'upload'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  Upload Policy
+                </div>
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {/* Tab Content */}
         <div className="mb-8">
-          <PolicyUpload />
+          {activeTab === 'upload' && <PolicyUpload />}
+          {activeTab === 'browse' && <PolicyList />}
         </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
             <div className="bg-blue-100 text-blue-600 rounded-full w-12 h-12 flex items-center justify-center mb-4">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,7 +145,7 @@ function App() {
         </div>
 
         {/* API Status */}
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-xl font-semibold text-gray-800 mb-4">System Status</h3>
 
           {apiStatus.loading ? (
@@ -152,3 +192,4 @@ function App() {
 }
 
 export default App;
+

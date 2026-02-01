@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { uploadPolicy } from '../services/api';
 
 function PolicyUpload() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -40,22 +41,8 @@ function PolicyUpload() {
     setError(null);
     setUploadResult(null);
 
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE_URL}/api/v1/policies/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Upload failed');
-      }
-
-      const result = await response.json();
+      const result = await uploadPolicy(selectedFile);
       setUploadResult(result);
       setSelectedFile(null);
 
@@ -68,6 +55,7 @@ function PolicyUpload() {
       setUploading(false);
     }
   };
+
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
