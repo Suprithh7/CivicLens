@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     LOG_TO_CONSOLE: bool = True
     LOG_JSON_FORMAT: bool = False
     
+    # File Upload
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE_MB: int = 10
+    
+    # Pagination
+    DEFAULT_PAGE_SIZE: int = 20
+    MAX_PAGE_SIZE: int = 100
+    
     @property
     def cors_origins_list(self) -> List[str]:
         """Convert comma-separated CORS origins to list."""

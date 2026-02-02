@@ -3,10 +3,13 @@
  * Centralized API communication layer for the CivicLens frontend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '../constants';
 
 /**
  * Generic fetch wrapper with error handling
+ * @param {string} endpoint - API endpoint path
+ * @param {Object} options - Fetch options
+ * @returns {Promise<any>} Response data
  */
 async function fetchAPI(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;

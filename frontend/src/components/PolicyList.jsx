@@ -1,95 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import PolicyCard from './PolicyCard';
-import { listPolicies, deletePolicy } from '../services/api';
+import LoadingSpinner from './common/LoadingSpinner';
+import ErrorMessage from './common/ErrorMessage';
+import { usePolicies } from '../hooks/usePolicies';
+import { usePagination } from '../hooks/usePagination';
+import { ITEMS_PER_PAGE, POLICY_STATUS_OPTIONS, POLICY_TYPE_OPTIONS } from '../constants';
 
 /**
  * PolicyList Component
  * Displays a paginated, filterable list of uploaded policies
  */
 const PolicyList = () => {
-  const [policies, setPolicies] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filters, setFilters] = useState({
-    status: '',
-    policyType: '',
-    jurisdiction: '',
-  });
+  const {
+    policies,
+    loading,
+    error,
+    total,
+    currentPage,
+    filters,
+    hasFilters,
+    setCurrentPage,
+    handleFilterChange,
+    clearFilters,
+    fetchPolicies,
+    handleDelete,
+  } = usePolicies();
 
-  const ITEMS_PER_PAGE = 12;
+  const { totalPages, getPageNumbers } = usePagination(total, ITEMS_PER_PAGE);
 
-  // Fetch policies
-  const fetchPolicies = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-      const response = await listPolicies({
-        status: filters.status || null,
-        policyType: filters.policyType || null,
-        jurisdiction: filters.jurisdiction || null,
-        limit: ITEMS_PER_PAGE,
-        offset,
-      });
-
-      setPolicies(response.policies);
-      setTotal(response.total);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch on mount and when filters/page change
-  useEffect(() => {
-    fetchPolicies();
-  }, [currentPage, filters]);
-
-  // Handle view policy
   const handleView = (policy) => {
     // For now, just log - we'll implement a modal or detail page later
     console.log('View policy:', policy);
     alert(`Viewing policy: ${policy.title || policy.filename}\n\nPolicy ID: ${policy.policy_id}\nStatus: ${policy.status}`);
   };
 
-  // Handle delete policy
-  const handleDelete = async (policy) => {
+  const onDelete = async (policy) => {
     if (!confirm(`Are you sure you want to delete "${policy.title || policy.filename}"?`)) {
       return;
     }
 
     try {
-      await deletePolicy(policy.policy_id);
-      // Refresh the list
-      fetchPolicies();
+      await handleDelete(policy.policy_id);
     } catch (err) {
-      alert(`Failed to delete policy: ${err.message}`);
+      alert(err.message);
     }
   };
-
-  // Handle filter change
-  const handleFilterChange = (filterName, value) => {
-    setFilters(prev => ({ ...prev, [filterName]: value }));
-    setCurrentPage(1); // Reset to first page when filters change
-  };
-
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      status: '',
-      policyType: '',
-      jurisdiction: '',
-    });
-    setCurrentPage(1);
-  };
-
-  // Calculate pagination
-  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
-  const hasFilters = filters.status || filters.policyType || filters.jurisdiction;
 
   return (
     <div className="space-y-6">
@@ -137,12 +92,9 @@ const PolicyList = () => {
               onChange={(e) => handleFilterChange('status', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">All Statuses</option>
-              <option value="uploaded">Uploaded</option>
-              <option value="processing">Processing</option>
-              <option value="analyzed">Analyzed</option>
-              <option value="failed">Failed</option>
-              <option value="archived">Archived</option>
+              {POLICY_STATUS_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
 
@@ -156,17 +108,9 @@ const PolicyList = () => {
               onChange={(e) => handleFilterChange('policyType', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">All Types</option>
-              <option value="healthcare">Healthcare</option>
-              <option value="education">Education</option>
-              <option value="agriculture">Agriculture</option>
-              <option value="employment">Employment</option>
-              <option value="housing">Housing</option>
-              <option value="social_welfare">Social Welfare</option>
-              <option value="infrastructure">Infrastructure</option>
-              <option value="environment">Environment</option>
-              <option value="finance">Finance</option>
-              <option value="other">Other</option>
+              {POLICY_TYPE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
 
@@ -187,25 +131,15 @@ const PolicyList = () => {
       </div>
 
       {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      )}
+      {loading && <LoadingSpinner />}
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <div className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <h4 className="text-red-800 font-semibold">Error loading policies</h4>
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          </div>
-        </div>
+        <ErrorMessage
+          title="Error loading policies"
+          message={error}
+          onRetry={fetchPolicies}
+        />
       )}
 
       {/* Empty State */}
@@ -232,7 +166,7 @@ const PolicyList = () => {
                 key={policy.id}
                 policy={policy}
                 onView={handleView}
-                onDelete={handleDelete}
+                onDelete={onDelete}
               />
             ))}
           </div>
@@ -249,30 +183,22 @@ const PolicyList = () => {
               </button>
 
               <div className="flex gap-1">
-                {[...Array(totalPages)].map((_, i) => {
-                  const page = i + 1;
-                  // Show first, last, current, and adjacent pages
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`px-4 py-2 rounded-lg transition-colors ${currentPage === page
-                            ? 'bg-blue-600 text-white'
-                            : 'border border-gray-300 hover:bg-gray-50'
-                          }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  } else if (page === currentPage - 2 || page === currentPage + 2) {
-                    return <span key={page} className="px-2 py-2">...</span>;
+                {getPageNumbers(currentPage).map((page, index) => {
+                  if (page === '...') {
+                    return <span key={`ellipsis-${index}`} className="px-2 py-2">...</span>;
                   }
-                  return null;
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-4 py-2 rounded-lg transition-colors ${currentPage === page
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-300 hover:bg-gray-50'
+                        }`}
+                    >
+                      {page}
+                    </button>
+                  );
                 })}
               </div>
 

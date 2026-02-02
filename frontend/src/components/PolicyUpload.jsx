@@ -1,68 +1,32 @@
-import React, { useState } from 'react';
-import { uploadPolicy } from '../services/api';
+import React from 'react';
+import { useFileUpload } from '../hooks/useFileUpload';
+import { formatFileSize } from '../utils/fileUtils';
+import ErrorMessage from './common/ErrorMessage';
+import SuccessMessage from './common/SuccessMessage';
+import { MAX_FILE_SIZE_MB } from '../constants';
 
 function PolicyUpload() {
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState(null);
-  const [error, setError] = useState(null);
+  const {
+    selectedFile,
+    uploading,
+    uploadResult,
+    error,
+    handleFileSelect,
+    handleUpload,
+    setSelectedFile,
+  } = useFileUpload();
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0];
-
-    // Reset previous states
-    setError(null);
-    setUploadResult(null);
-
-    if (file) {
-      // Validate file type
-      if (file.type !== 'application/pdf') {
-        setError('Please select a PDF file');
-        setSelectedFile(null);
-        return;
-      }
-
-      // Validate file size (10MB max)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        setError('File size must be less than 10MB');
-        setSelectedFile(null);
-        return;
-      }
-
-      setSelectedFile(file);
-    }
+  const resetFileInput = () => {
+    document.getElementById('file-input').value = '';
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-
-    setUploading(true);
-    setError(null);
-    setUploadResult(null);
-
+  const onUpload = async () => {
     try {
-      const result = await uploadPolicy(selectedFile);
-      setUploadResult(result);
-      setSelectedFile(null);
-
-      // Reset file input
-      document.getElementById('file-input').value = '';
-
+      await handleUpload();
+      resetFileInput();
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setUploading(false);
+      // Error is already handled in the hook
     }
-  };
-
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
   return (
@@ -78,7 +42,7 @@ function PolicyUpload() {
             htmlFor="file-input"
             className="block text-sm font-medium text-gray-700 mb-2"
           >
-            Select PDF File (Max 10MB)
+            Select PDF File (Max {MAX_FILE_SIZE_MB}MB)
           </label>
           <input
             id="file-input"
@@ -124,7 +88,7 @@ function PolicyUpload() {
 
         {/* Upload Button */}
         <button
-          onClick={handleUpload}
+          onClick={onUpload}
           disabled={!selectedFile || uploading}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
         >
@@ -148,37 +112,25 @@ function PolicyUpload() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <div className="flex items-start space-x-2">
-              <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-red-800">Upload Failed</p>
-                <p className="text-xs text-red-600 mt-1">{error}</p>
-              </div>
-            </div>
-          </div>
+          <ErrorMessage
+            title="Upload Failed"
+            message={error}
+          />
         )}
 
         {/* Success Message */}
         {uploadResult && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-start space-x-2">
-              <svg className="w-5 h-5 text-green-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-green-800">Upload Successful!</p>
-                <div className="mt-2 text-xs text-green-700 space-y-1">
-                  <p><span className="font-semibold">ID:</span> {uploadResult.id}</p>
-                  <p><span className="font-semibold">Filename:</span> {uploadResult.filename}</p>
-                  <p><span className="font-semibold">Size:</span> {formatFileSize(uploadResult.file_size)}</p>
-                  <p><span className="font-semibold">Status:</span> {uploadResult.status}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <SuccessMessage
+            title="Upload Successful!"
+            details={
+              <>
+                <p><span className="font-semibold">ID:</span> {uploadResult.id}</p>
+                <p><span className="font-semibold">Filename:</span> {uploadResult.filename}</p>
+                <p><span className="font-semibold">Size:</span> {formatFileSize(uploadResult.file_size)}</p>
+                <p><span className="font-semibold">Status:</span> {uploadResult.status}</p>
+              </>
+            }
+          />
         )}
       </div>
     </div>

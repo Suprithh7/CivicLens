@@ -5,6 +5,11 @@ Policy endpoints for document upload and management.
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+import logging
+
 from app.schemas.policy import (
     PolicyUploadResponse, 
     PolicyPublic, 
@@ -14,49 +19,30 @@ from app.schemas.policy import (
 )
 from app.models.policy import Policy, PolicyStatus
 from app.core.dependencies import get_db
-from datetime import datetime
-import os
-import uuid
-import hashlib
-from pathlib import Path
-from typing import Optional
-import logging
+from app.constants import (
+    POLICY_UPLOAD_DIR,
+    MAX_FILE_SIZE_BYTES,
+    ERROR_POLICY_NOT_FOUND,
+    ERROR_POLICY_ALREADY_EXISTS,
+    DEFAULT_PAGE_LIMIT,
+    MAX_PAGE_LIMIT,
+)
+from app.utils.file_utils import (
+    validate_pdf,
+    validate_file_size,
+    calculate_file_hash,
+    generate_unique_id,
+    sanitize_filename,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Configure upload directory
-UPLOAD_DIR = Path("uploads/policies")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-# Allowed file types
-ALLOWED_EXTENSIONS = {".pdf"}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+# Ensure upload directory exists
+POLICY_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def validate_pdf(file: UploadFile) -> None:
-    """Validate uploaded file is a PDF and within size limits."""
-    
-    # Check file extension
-    file_ext = os.path.splitext(file.filename)[1].lower()
-    if file_ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Only PDF files are allowed. Got: {file_ext}"
-        )
-    
-    # Check content type
-    if file.content_type != "application/pdf":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid content type. Expected 'application/pdf', got '{file.content_type}'"
-        )
-
-
-def calculate_file_hash(content: bytes) -> str:
-    """Calculate SHA-256 hash of file content."""
-    return hashlib.sha256(content).hexdigest()
 
 
 @router.post(
@@ -86,15 +72,15 @@ async def upload_policy(
     
     logger.info(f"Starting policy upload: {file.filename}")
     
-    # Validate file
+    # Validate file type
     validate_pdf(file)
     logger.debug(f"File validation passed for: {file.filename}")
     
-    # Generate unique ID and filename
-    policy_id = f"pol_{uuid.uuid4().hex[:12]}"
-    file_ext = os.path.splitext(file.filename)[1]
+    # Generate unique ID and sanitize filename
+    policy_id = generate_unique_id()
+    file_ext = Path(file.filename).suffix
     stored_filename = f"{policy_id}{file_ext}"
-    file_path = UPLOAD_DIR / stored_filename
+    file_path = POLICY_UPLOAD_DIR / stored_filename
     
     try:
         # Read file content
@@ -102,12 +88,8 @@ async def upload_policy(
         file_size = len(content)
         logger.debug(f"File read successfully: {file_size} bytes")
         
-        # Check file size
-        if file_size > MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File too large. Maximum size: {MAX_FILE_SIZE / 1024 / 1024}MB"
-            )
+        # Validate file size
+        validate_file_size(file_size, MAX_FILE_SIZE_BYTES)
         
         # Calculate file hash
         file_hash = calculate_file_hash(content)
@@ -120,7 +102,7 @@ async def upload_policy(
         if existing_policy:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"File already exists with policy_id: {existing_policy.policy_id}"
+                detail=f"{ERROR_POLICY_ALREADY_EXISTS}: {existing_policy.policy_id}"
             )
         
         # Save file to disk
@@ -188,7 +170,7 @@ async def list_policies(
     status_filter: Optional[PolicyStatusEnum] = Query(None, alias="status", description="Filter by status"),
     policy_type: Optional[PolicyTypeEnum] = Query(None, description="Filter by policy type"),
     jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction"),
-    limit: int = Query(20, ge=1, le=100, description="Number of results per page"),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT, description="Number of results per page"),
     offset: int = Query(0, ge=0, description="Number of results to skip")
 ) -> PolicyListResponse:
     """
