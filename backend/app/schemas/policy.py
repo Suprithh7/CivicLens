@@ -152,3 +152,50 @@ class PolicyMetadata(BaseModel):
     file_size: int
     upload_timestamp: datetime
     description: Optional[str] = None
+
+
+class TextExtractionResponse(BaseModel):
+    """Response for text extraction request."""
+    policy_id: str = Field(..., description="Unique policy identifier")
+    processing_id: int = Field(..., description="Processing record ID")
+    status: str = Field(..., description="Processing status")
+    character_count: int = Field(..., description="Number of characters extracted")
+    word_count: int = Field(..., description="Number of words extracted")
+    text_preview: str = Field(..., description="Preview of extracted text (first 500 chars)")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "policy_id": "pol_abc123xyz",
+                "processing_id": 1,
+                "status": "completed",
+                "character_count": 15420,
+                "word_count": 2340,
+                "text_preview": "This policy document outlines the healthcare benefits..."
+            }
+        }
+    )
+
+
+class ExtractedTextResponse(BaseModel):
+    """Response for retrieved extracted text."""
+    policy_id: str = Field(..., description="Unique policy identifier")
+    filename: str = Field(..., description="Original filename")
+    extracted_text: str = Field(..., description="Full extracted text content")
+    character_count: int = Field(..., description="Number of characters")
+    word_count: int = Field(..., description="Number of words")
+    extraction_timestamp: datetime = Field(..., description="When text was extracted")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "policy_id": "pol_abc123xyz",
+                "filename": "healthcare_policy_2024.pdf",
+                "extracted_text": "Full text content of the policy document...",
+                "character_count": 15420,
+                "word_count": 2340,
+                "extraction_timestamp": "2024-01-27T18:05:00Z"
+            }
+        }
+    )
+

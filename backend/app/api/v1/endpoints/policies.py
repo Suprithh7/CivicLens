@@ -15,7 +15,9 @@ from app.schemas.policy import (
     PolicyPublic, 
     PolicyListResponse,
     PolicyStatusEnum,
-    PolicyTypeEnum
+    PolicyTypeEnum,
+    TextExtractionResponse,
+    ExtractedTextResponse
 )
 from app.models.policy import Policy, PolicyStatus
 from app.core.dependencies import get_db
@@ -26,6 +28,8 @@ from app.constants import (
     ERROR_POLICY_ALREADY_EXISTS,
     DEFAULT_PAGE_LIMIT,
     MAX_PAGE_LIMIT,
+    SUCCESS_TEXT_EXTRACTION_STARTED,
+    ERROR_NO_EXTRACTED_TEXT,
 )
 from app.utils.file_utils import (
     validate_pdf,
@@ -33,6 +37,11 @@ from app.utils.file_utils import (
     calculate_file_hash,
     generate_unique_id,
     sanitize_filename,
+)
+from app.services.text_extraction import (
+    process_policy_text_extraction,
+    get_extracted_text,
+    TextExtractionError
 )
 
 logger = logging.getLogger(__name__)
@@ -305,3 +314,117 @@ async def delete_policy(
     
     await db.commit()
     logger.info(f"Policy deleted successfully: {policy_id}")
+
+
+@router.post(
+    "/{policy_id}/extract-text",
+    response_model=TextExtractionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Extract Text from Policy PDF",
+    description="Trigger text extraction from a policy PDF document. Creates a processing record and extracts raw text."
+)
+async def extract_policy_text(
+    policy_id: str,
+    force: bool = Query(False, description="Force re-extraction even if already extracted"),
+    db: AsyncSession = Depends(get_db)
+) -> TextExtractionResponse:
+    """
+    Extract text from a policy PDF.
+    
+    Args:
+        policy_id: Unique policy identifier
+        force: If True, re-extract even if already extracted
+        db: Database session
+        
+    Returns:
+        TextExtractionResponse: Extraction result with text preview
+        
+    Raises:
+        HTTPException: If policy not found or extraction fails
+    """
+    logger.info(f"Text extraction requested for policy: {policy_id} (force={force})")
+    
+    try:
+        result = await process_policy_text_extraction(policy_id, db, force=force)
+        return TextExtractionResponse(**result)
+    except TextExtractionError as e:
+        logger.error(f"Text extraction error: {e.message}", exc_info=True)
+        raise HTTPException(
+            status_code=e.status_code,
+            detail=e.message
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during text extraction: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Text extraction failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/{policy_id}/text",
+    response_model=ExtractedTextResponse,
+    summary="Get Extracted Text",
+    description="Retrieve the full extracted text content from a policy document."
+)
+async def get_policy_text(
+    policy_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> ExtractedTextResponse:
+    """
+    Get extracted text for a policy.
+    
+    Args:
+        policy_id: Unique policy identifier
+        db: Database session
+        
+    Returns:
+        ExtractedTextResponse: Full extracted text and metadata
+        
+    Raises:
+        HTTPException: If policy not found or text not extracted
+    """
+    logger.info(f"Retrieving extracted text for policy: {policy_id}")
+    
+    try:
+        # Get policy
+        stmt = select(Policy).where(
+            Policy.policy_id == policy_id,
+            Policy.deleted_at.is_(None)
+        )
+        result = await db.execute(stmt)
+        policy = result.scalar_one_or_none()
+        
+        if not policy:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Policy with ID '{policy_id}' not found"
+            )
+        
+        # Get extracted text
+        extracted_text = await get_extracted_text(policy_id, db)
+        
+        if not extracted_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ERROR_NO_EXTRACTED_TEXT
+            )
+        
+        return ExtractedTextResponse(
+            policy_id=policy_id,
+            filename=policy.filename,
+            extracted_text=extracted_text,
+            character_count=len(extracted_text),
+            word_count=len(extracted_text.split()),
+            extraction_timestamp=datetime.utcnow()
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving extracted text: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve extracted text: {str(e)}"
+        )
+

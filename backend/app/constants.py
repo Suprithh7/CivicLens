@@ -38,6 +38,17 @@ ERROR_DATABASE_ERROR = "Database operation failed"
 SUCCESS_POLICY_UPLOADED = "Policy uploaded successfully"
 SUCCESS_POLICY_DELETED = "Policy deleted successfully"
 
+# Text Extraction Configuration
+TEXT_PREVIEW_LENGTH = 500  # Length of text preview in API responses
+
+# Text Extraction Messages
+SUCCESS_TEXT_EXTRACTION_STARTED = "Text extraction started"
+SUCCESS_TEXT_EXTRACTION_COMPLETED = "Text extraction completed successfully"
+ERROR_TEXT_EXTRACTION_FAILED = "Failed to extract text from PDF"
+ERROR_TEXT_EXTRACTION_IN_PROGRESS = "Text extraction already in progress"
+ERROR_TEXT_ALREADY_EXTRACTED = "Text has already been extracted"
+ERROR_NO_EXTRACTED_TEXT = "No extracted text found for this policy"
+
 # Date/Time Formats
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DATE_FORMAT = "%Y-%m-%d"
