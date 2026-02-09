@@ -53,6 +53,23 @@ ERROR_NO_EXTRACTED_TEXT = "No extracted text found for this policy"
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DATE_FORMAT = "%Y-%m-%d"
 
+# Text Chunking Configuration
+DEFAULT_CHUNK_SIZE = 1000  # Default chunk size in characters
+DEFAULT_CHUNK_OVERLAP = 200  # Default overlap between chunks in characters
+MIN_CHUNK_SIZE = 100  # Minimum allowed chunk size
+MAX_CHUNK_SIZE = 5000  # Maximum allowed chunk size
+MIN_CHUNK_OVERLAP = 0  # Minimum overlap
+MAX_CHUNK_OVERLAP = 500  # Maximum overlap
+
+# Text Chunking Messages
+SUCCESS_CHUNKING_COMPLETED = "Text chunking completed successfully"
+ERROR_NO_EXTRACTED_TEXT_FOR_CHUNKING = "Cannot chunk: text not extracted yet"
+ERROR_CHUNKING_FAILED = "Text chunking failed"
+ERROR_CHUNK_NOT_FOUND = "Chunk not found"
+ERROR_CHUNKING_IN_PROGRESS = "Text chunking already in progress"
+ERROR_TEXT_ALREADY_CHUNKED = "Text has already been chunked"
+
 # Logging
 LOG_FORMAT_JSON = "json"
 LOG_FORMAT_TEXT = "text"
+

@@ -106,6 +106,12 @@ class Policy(Base):
         back_populates="policy",
         cascade="all, delete-orphan"
     )
+    chunks = relationship(
+        "PolicyChunk",
+        back_populates="policy",
+        cascade="all, delete-orphan",
+        order_by="PolicyChunk.chunk_index"
+    )
     
     # Indexes
     __table_args__ = (
@@ -165,6 +171,7 @@ class PolicyTag(Base):
 class ProcessingStage(str, enum.Enum):
     """AI processing pipeline stages."""
     TEXT_EXTRACTION = "text_extraction"
+    CHUNKING = "chunking"
     SUMMARIZATION = "summarization"
     EMBEDDING = "embedding"
     QA_READY = "qa_ready"
@@ -212,3 +219,46 @@ class PolicyProcessing(Base):
     
     def __repr__(self) -> str:
         return f"<PolicyProcessing(id={self.id}, policy_id={self.policy_id}, stage={self.stage}, status={self.status})>"
+
+
+class PolicyChunk(Base):
+    """
+    Store text chunks for policy documents.
+    Enables efficient retrieval and processing of document segments.
+    """
+    __tablename__ = "policy_chunks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    policy_id = Column(Integer, ForeignKey("policies.id", ondelete="CASCADE"), nullable=False)
+    
+    # Chunk positioning
+    chunk_index = Column(Integer, nullable=False)  # Sequential index (0-based)
+    
+    # Chunk content
+    chunk_text = Column(Text, nullable=False)
+    chunk_size = Column(Integer, nullable=False)  # Character count
+    
+    # Position in original document
+    start_char = Column(Integer, nullable=False)  # Starting character position
+    end_char = Column(Integer, nullable=False)    # Ending character position
+    
+    # Page mapping (JSON array of page numbers this chunk spans)
+    page_numbers = Column(JSON, nullable=True)
+    
+    # Flexible metadata storage
+    metadata_json = Column(JSON, nullable=True)
+    
+    # Timestamp
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    policy = relationship("Policy", back_populates="chunks")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_chunk_policy_index', 'policy_id', 'chunk_index'),
+        Index('idx_chunk_policy', 'policy_id'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<PolicyChunk(id={self.id}, policy_id={self.policy_id}, chunk_index={self.chunk_index}, size={self.chunk_size})>"
