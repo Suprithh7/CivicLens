@@ -286,6 +286,16 @@ async def process_policy_embeddings(
         
         logger.info(f"Embedding generation completed for policy: {policy_id}, processed {len(chunks)} chunks")
         
+        # Build FAISS index automatically after embeddings are generated
+        try:
+            from app.services.faiss_service import build_policy_index
+            logger.info(f"Building FAISS index for policy: {policy_id}")
+            index_result = await build_policy_index(policy_id, db)
+            logger.info(f"FAISS index built successfully: {index_result}")
+        except Exception as faiss_error:
+            # Log error but don't fail the embedding generation
+            logger.error(f"Failed to build FAISS index: {str(faiss_error)}", exc_info=True)
+        
         return {
             "policy_id": policy_id,
             "processing_id": processing_record.id,

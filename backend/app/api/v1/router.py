@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, policies, chunks, embeddings
+from app.api.v1.endpoints import health, policies, chunks, embeddings, search
 
 # Create API v1 router
 api_router = APIRouter()
@@ -26,6 +26,12 @@ api_router.include_router(
     embeddings.router,
     prefix="/policies",
     tags=["Embeddings"]
+)
+
+api_router.include_router(
+    search.router,
+    prefix="/policies",
+    tags=["Search"]
 )
 
 # Future endpoints will be added here:
