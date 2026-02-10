@@ -248,6 +248,9 @@ class PolicyChunk(Base):
     # Flexible metadata storage
     metadata_json = Column(JSON, nullable=True)
     
+    # Vector embedding for semantic search (stored as JSON array)
+    embedding = Column(JSON, nullable=True)
+    
     # Timestamp
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     

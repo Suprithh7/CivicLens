@@ -30,6 +30,7 @@ class ChunkPublic(ChunkBase):
     end_char: int
     page_numbers: Optional[List[int]] = None
     metadata_json: Optional[Dict[str, Any]] = None
+    embedding: Optional[List[float]] = Field(None, description="Vector embedding for semantic search")
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
@@ -94,3 +95,46 @@ class ChunkingResponse(BaseModel):
             }
         }
     )
+
+
+class EmbeddingRequest(BaseModel):
+    """Request parameters for embedding generation."""
+    force: bool = Field(False, description="Force regeneration even if embeddings exist")
+    batch_size: int = Field(32, ge=1, le=128, description="Number of chunks to process per batch")
+
+
+class EmbeddingResponse(BaseModel):
+    """Response for embedding generation operation."""
+    policy_id: str
+    processing_id: int
+    status: str
+    chunk_count: int
+    embedding_dimension: int
+    model_name: str
+    embedding_timestamp: str
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "policy_id": "pol_abc123xyz",
+                "processing_id": 43,
+                "status": "completed",
+                "chunk_count": 15,
+                "embedding_dimension": 384,
+                "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+                "embedding_timestamp": "2026-02-10T22:58:00.000000"
+            }
+        }
+    )
+
+
+class EmbeddingStatusResponse(BaseModel):
+    """Response for embedding status check."""
+    policy_id: str
+    processing_id: Optional[int] = None
+    status: str
+    progress_percent: Optional[int] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error_message: Optional[str] = None
+    result_data: Optional[Dict[str, Any]] = None
