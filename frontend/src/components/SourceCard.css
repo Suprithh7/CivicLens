@@ -1,0 +1,100 @@
+/* SourceCard Styles */
+
+.source-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.source-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-color: #d1d5db;
+}
+
+.source-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.source-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6366f1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.policy-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.similarity-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+}
+
+.source-content {
+  margin-bottom: 12px;
+}
+
+.chunk-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.source-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.source-metadata {
+  display: flex;
+  gap: 16px;
+}
+
+.metadata-item {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.expand-button {
+  background: none;
+  border: none;
+  color: #6366f1;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.expand-button:hover {
+  background-color: #eef2ff;
+}
+
+.expand-button:active {
+  background-color: #e0e7ff;
+}

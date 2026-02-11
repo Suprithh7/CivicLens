@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
     
+    # LLM Configuration
+    LLM_PROVIDER: str = "openai"
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "gpt-4-turbo-preview"
+    LLM_TEMPERATURE: float = 0.7
+    LLM_MAX_TOKENS: int = 1000
+    LLM_BASE_URL: str = "https://api.openai.com/v1"
+    
     @property
     def cors_origins_list(self) -> List[str]:
         """Convert comma-separated CORS origins to list."""

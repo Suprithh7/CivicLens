@@ -24,6 +24,10 @@ torch==2.1.2
 faiss-cpu==1.7.4
 numpy>=1.24.0
 
+# LLM Integration
+openai==1.12.0
+tiktoken==0.5.2
+
 # Development
 pytest==7.4.4
 httpx==0.26.0
