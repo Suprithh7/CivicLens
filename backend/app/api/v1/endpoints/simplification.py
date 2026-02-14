@@ -73,7 +73,8 @@ async def explain_policy(
             focus_area=request.focus_area,
             max_points=request.max_points,
             model=request.model,
-            temperature=request.temperature
+            temperature=request.temperature,
+            language=request.language
         )
         
         return SimplificationResponse(**response)

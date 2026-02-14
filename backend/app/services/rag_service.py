@@ -16,6 +16,12 @@ from app.services.llm_service import (
     count_tokens,
     LLMError
 )
+from app.services.language_service import (
+    detect_language,
+    normalize_language_code,
+    get_multilingual_instruction,
+    get_language_name
+)
 from app.core.exceptions import CivicLensException
 
 logger = logging.getLogger(__name__)
@@ -32,24 +38,28 @@ class RAGError(CivicLensException):
         )
 
 
-def _construct_prompt(query: str, chunks: List[Dict]) -> tuple[str, str]:
+def _construct_prompt(query: str, chunks: List[Dict], language: str = "en") -> tuple[str, str]:
     """
     Construct the LLM prompt from query and retrieved chunks.
     
     Args:
         query: User's question
         chunks: Retrieved document chunks with metadata
+        language: Target language code for the response
         
     Returns:
         Tuple of (system_message, user_prompt)
     """
-    system_message = """You are a helpful AI assistant that answers questions about government policy documents.
+    language_name = get_language_name(language)
+    language_instruction = get_multilingual_instruction(language)
+    
+    system_message = f"""You are a helpful AI assistant that answers questions about government policy documents.
 
 Your role is to:
 1. Provide accurate, concise answers based ONLY on the provided context
 2. Cite specific sources when making claims
 3. Acknowledge when information is not available in the context
-4. Use clear, accessible language suitable for citizens
+4. Use clear, accessible language suitable for citizens{language_instruction}
 
 Guidelines:
 - If the context doesn't contain relevant information, say so clearly
@@ -84,7 +94,9 @@ def _format_response(
     answer: str,
     chunks: List[Dict],
     query: str,
-    model: str
+    model: str,
+    detected_language: str,
+    response_language: str
 ) -> Dict:
     """
     Format the RAG response with answer and sources.
@@ -94,6 +106,8 @@ def _format_response(
         chunks: Retrieved chunks used as context
         query: Original query
         model: Model used for generation
+        detected_language: Detected language from query
+        response_language: Language of the response
         
     Returns:
         Formatted response dictionary
@@ -117,7 +131,9 @@ def _format_response(
         "query": query,
         "model_used": model,
         "timestamp": datetime.utcnow().isoformat(),
-        "num_sources": len(sources)
+        "num_sources": len(sources),
+        "detected_language": detected_language,
+        "response_language": response_language
     }
 
 
@@ -127,7 +143,8 @@ async def answer_question(
     policy_id: Optional[str] = None,
     top_k: int = 5,
     model: Optional[str] = None,
-    temperature: Optional[float] = None
+    temperature: Optional[float] = None,
+    language: Optional[str] = None
 ) -> Dict:
     """
     Answer a question using RAG pipeline.
@@ -139,6 +156,7 @@ async def answer_question(
         top_k: Number of chunks to retrieve
         model: LLM model to use
         temperature: Sampling temperature
+        language: Target language code (auto-detects if not provided)
         
     Returns:
         Dictionary with answer and sources
@@ -148,6 +166,16 @@ async def answer_question(
     """
     try:
         logger.info(f"Processing RAG query: '{query}' (policy_id={policy_id}, top_k={top_k})")
+        
+        # Detect or normalize language
+        if language:
+            detected_lang = normalize_language_code(language)
+            logger.info(f"Using specified language: {detected_lang}")
+        else:
+            detected_lang = detect_language(query)
+            logger.info(f"Auto-detected language: {detected_lang}")
+        
+        response_lang = detected_lang
         
         # Step 1: Retrieve relevant chunks
         if policy_id:
@@ -168,19 +196,31 @@ async def answer_question(
         
         if not chunks:
             logger.warning(f"No relevant chunks found for query: '{query}'")
+            # Provide "no results" message in the detected language
+            no_results_messages = {
+                "en": "I couldn't find any relevant information in the policy documents to answer your question.",
+                "es": "No pude encontrar información relevante en los documentos de políticas para responder a tu pregunta.",
+                "fr": "Je n'ai pas trouvé d'informations pertinentes dans les documents de politique pour répondre à votre question.",
+                "de": "Ich konnte keine relevanten Informationen in den Richtliniendokumenten finden, um Ihre Frage zu beantworten.",
+                "hi": "मुझे आपके प्रश्न का उत्तर देने के लिए नीति दस्तावेज़ों में कोई प्रासंगिक जानकारी नहीं मिली।",
+            }
+            no_results_msg = no_results_messages.get(detected_lang, no_results_messages["en"])
+            
             return {
-                "answer": "I couldn't find any relevant information in the policy documents to answer your question.",
+                "answer": no_results_msg,
                 "sources": [],
                 "query": query,
                 "model_used": model or "none",
                 "timestamp": datetime.utcnow().isoformat(),
-                "num_sources": 0
+                "num_sources": 0,
+                "detected_language": detected_lang,
+                "response_language": response_lang
             }
         
         logger.info(f"Retrieved {len(chunks)} relevant chunks")
         
-        # Step 2: Construct prompt
-        system_message, user_prompt = _construct_prompt(query, chunks)
+        # Step 2: Construct prompt with language instruction
+        system_message, user_prompt = _construct_prompt(query, chunks, response_lang)
         
         # Log token count for monitoring
         prompt_tokens = count_tokens(system_message + user_prompt, model)
@@ -226,7 +266,8 @@ async def answer_question_streaming(
     policy_id: Optional[str] = None,
     top_k: int = 5,
     model: Optional[str] = None,
-    temperature: Optional[float] = None
+    temperature: Optional[float] = None,
+    language: Optional[str] = None
 ) -> AsyncGenerator[Dict, None]:
     """
     Answer a question using RAG pipeline with streaming response.
@@ -238,6 +279,7 @@ async def answer_question_streaming(
         top_k: Number of chunks to retrieve
         model: LLM model to use
         temperature: Sampling temperature
+        language: Target language code (auto-detects if not provided)
         
     Yields:
         Dictionaries with answer chunks and metadata
@@ -247,6 +289,16 @@ async def answer_question_streaming(
     """
     try:
         logger.info(f"Processing streaming RAG query: '{query}' (policy_id={policy_id}, top_k={top_k})")
+        
+        # Detect or normalize language
+        if language:
+            detected_lang = normalize_language_code(language)
+            logger.info(f"Using specified language: {detected_lang}")
+        else:
+            detected_lang = detect_language(query)
+            logger.info(f"Auto-detected language: {detected_lang}")
+        
+        response_lang = detected_lang
         
         # Step 1: Retrieve relevant chunks
         if policy_id:
@@ -281,22 +333,34 @@ async def answer_question_streaming(
                 }
                 for chunk in chunks
             ],
-            "num_sources": len(chunks)
+            "num_sources": len(chunks),
+            "detected_language": detected_lang,
+            "response_language": response_lang
         }
         
         if not chunks:
             logger.warning(f"No relevant chunks found for query: '{query}'")
+            # Provide "no results" message in the detected language
+            no_results_messages = {
+                "en": "I couldn't find any relevant information in the policy documents to answer your question.",
+                "es": "No pude encontrar información relevante en los documentos de políticas para responder a tu pregunta.",
+                "fr": "Je n'ai pas trouvé d'informations pertinentes dans les documents de politique pour répondre à votre question.",
+                "de": "Ich konnte keine relevanten Informationen in den Richtliniendokumenten finden, um Ihre Frage zu beantworten.",
+                "hi": "मुझे आपके प्रश्न का उत्तर देने के लिए नीति दस्तावेज़ों में कोई प्रासंगिक जानकारी नहीं मिली।",
+            }
+            no_results_msg = no_results_messages.get(detected_lang, no_results_messages["en"])
+            
             yield {
                 "type": "answer",
-                "content": "I couldn't find any relevant information in the policy documents to answer your question.",
+                "content": no_results_msg,
                 "done": True
             }
             return
         
         logger.info(f"Retrieved {len(chunks)} relevant chunks")
         
-        # Step 2: Construct prompt
-        system_message, user_prompt = _construct_prompt(query, chunks)
+        # Step 2: Construct prompt with language instruction
+        system_message, user_prompt = _construct_prompt(query, chunks, response_lang)
         
         # Step 3: Stream answer
         async for chunk in generate_completion_streaming(

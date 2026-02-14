@@ -12,6 +12,11 @@ from sqlalchemy import select
 
 from app.models.policy import Policy, PolicyProcessing, ProcessingStage, ProcessingStatus, PolicyChunk
 from app.services.llm_service import generate_completion, LLMError
+from app.services.language_service import (
+    detect_language,
+    normalize_language_code,
+    get_language_name
+)
 from app.services.policy_simplification_prompts import (
     POLICY_SIMPLIFICATION_SYSTEM_MESSAGE,
     get_policy_explanation_prompt,
@@ -118,7 +123,8 @@ async def simplify_policy(
     focus_area: Optional[str] = None,
     max_points: int = 5,
     model: Optional[str] = None,
-    temperature: Optional[float] = None
+    temperature: Optional[float] = None,
+    language: Optional[str] = None
 ) -> Dict:
     """
     Generate a simplified explanation of a policy document.
@@ -132,6 +138,7 @@ async def simplify_policy(
         max_points: Maximum number of key points (for key_points type)
         model: LLM model to use
         temperature: Sampling temperature
+        language: Target language code (auto-detects if not provided)
         
     Returns:
         Dictionary with simplified explanation and metadata
@@ -142,6 +149,22 @@ async def simplify_policy(
     try:
         logger.info(f"Simplifying policy {policy_id} with type '{explanation_type}'")
         
+        # Detect or normalize language
+        if language:
+            detected_lang = normalize_language_code(language)
+            logger.info(f"Using specified language: {detected_lang}")
+        else:
+            # Try to detect from user_situation or focus_area
+            text_for_detection = user_situation or focus_area or ""
+            if text_for_detection:
+                detected_lang = detect_language(text_for_detection)
+                logger.info(f"Auto-detected language from input: {detected_lang}")
+            else:
+                detected_lang = "en"  # Default to English
+                logger.info("No text for language detection, defaulting to English")
+        
+        response_lang = detected_lang
+        
         # Get policy text
         policy_text, policy_title = await get_policy_text(policy_id, db)
         
@@ -150,7 +173,8 @@ async def simplify_policy(
             prompt = get_policy_explanation_prompt(
                 policy_text=policy_text,
                 policy_title=policy_title,
-                focus_area=focus_area
+                focus_area=focus_area,
+                language=response_lang
             )
             # Use moderate temperature for balanced creativity and accuracy
             temp = temperature if temperature is not None else 0.7
@@ -164,7 +188,8 @@ async def simplify_policy(
             prompt = get_eligibility_check_prompt(
                 policy_text=policy_text,
                 user_situation=user_situation,
-                policy_title=policy_title
+                policy_title=policy_title,
+                language=response_lang
             )
             # Use lower temperature for more factual responses
             temp = temperature if temperature is not None else 0.3
@@ -172,16 +197,23 @@ async def simplify_policy(
         elif explanation_type == "key_points":
             prompt = get_key_points_prompt(
                 policy_text=policy_text,
-                max_points=max_points
+                max_points=max_points,
+                language=response_lang
             )
             temp = temperature if temperature is not None else 0.5
             
         elif explanation_type == "benefits":
-            prompt = get_benefits_summary_prompt(policy_text=policy_text)
+            prompt = get_benefits_summary_prompt(
+                policy_text=policy_text,
+                language=response_lang
+            )
             temp = temperature if temperature is not None else 0.6
             
         elif explanation_type == "application":
-            prompt = get_application_process_prompt(policy_text=policy_text)
+            prompt = get_application_process_prompt(
+                policy_text=policy_text,
+                language=response_lang
+            )
             temp = temperature if temperature is not None else 0.5
             
         else:
@@ -194,9 +226,10 @@ async def simplify_policy(
             )
         
         # Generate simplified explanation
+        system_msg = POLICY_SIMPLIFICATION_SYSTEM_MESSAGE(response_lang)
         simplified_text = await generate_completion(
             prompt=prompt,
-            system_message=POLICY_SIMPLIFICATION_SYSTEM_MESSAGE,
+            system_message=system_msg,
             model=model,
             temperature=temp
         )
@@ -208,7 +241,9 @@ async def simplify_policy(
             "explanation_type": explanation_type,
             "simplified_text": simplified_text,
             "model_used": model or "default",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "detected_language": detected_lang,
+            "response_language": response_lang
         }
         
         logger.info(f"Successfully simplified policy {policy_id} ({len(simplified_text)} chars)")

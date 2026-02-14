@@ -63,7 +63,8 @@ async def ask_question(
             policy_id=request.policy_id,
             top_k=request.top_k,
             model=request.model,
-            temperature=request.temperature
+            temperature=request.temperature,
+            language=request.language
         )
         
         return RAGResponse(**response)
@@ -143,7 +144,8 @@ async def ask_question_stream(
                 policy_id=request.policy_id,
                 top_k=request.top_k,
                 model=request.model,
-                temperature=request.temperature
+                temperature=request.temperature,
+                language=request.language
             ):
                 # Convert chunk to JSON and send with newline delimiter
                 yield json.dumps(chunk) + "\n"

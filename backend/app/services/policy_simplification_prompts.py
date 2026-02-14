@@ -4,12 +4,17 @@ Contains prompt templates for explaining government policies in simple, accessib
 """
 
 from typing import Dict, Optional
+from app.services.language_service import get_multilingual_instruction, get_language_name
 
 
 # System message for policy simplification
-POLICY_SIMPLIFICATION_SYSTEM_MESSAGE = """You are CivicLens AI, a helpful assistant that makes government policies accessible to everyday citizens.
+def POLICY_SIMPLIFICATION_SYSTEM_MESSAGE(language: str = "en") -> str:
+    """Get the system message for policy simplification in the specified language."""
+    language_instruction = get_multilingual_instruction(language)
+    
+    return f"""You are CivicLens AI, a helpful assistant that makes government policies accessible to everyday citizens.
 
-Your mission is to transform complex legal and bureaucratic language into clear, simple explanations that anyone can understand.
+Your mission is to transform complex legal and bureaucratic language into clear, simple explanations that anyone can understand.{language_instruction}
 
 Core Principles:
 1. **Use Plain Language**: Avoid jargon, legal terms, and bureaucratic language
@@ -34,7 +39,8 @@ Tone: Friendly, helpful, and respectful - like explaining to a neighbor over cof
 def get_policy_explanation_prompt(
     policy_text: str,
     policy_title: Optional[str] = None,
-    focus_area: Optional[str] = None
+    focus_area: Optional[str] = None,
+    language: str = "en"
 ) -> str:
     """
     Generate a prompt for explaining a policy in simple language.
@@ -43,6 +49,7 @@ def get_policy_explanation_prompt(
         policy_text: The policy document text or excerpt
         policy_title: Optional title of the policy
         focus_area: Optional specific aspect to focus on (e.g., "eligibility", "benefits", "application process")
+        language: Target language code
         
     Returns:
         Formatted prompt for the LLM
@@ -75,7 +82,8 @@ Remember: Write as if you're explaining this to a friend who has no background i
 def get_eligibility_check_prompt(
     policy_text: str,
     user_situation: str,
-    policy_title: Optional[str] = None
+    policy_title: Optional[str] = None,
+    language: str = "en"
 ) -> str:
     """
     Generate a prompt for checking if a user is eligible for a policy.
@@ -84,6 +92,7 @@ def get_eligibility_check_prompt(
         policy_text: The policy document text or excerpt
         user_situation: Description of the user's situation
         policy_title: Optional title of the policy
+        language: Target language code
         
     Returns:
         Formatted prompt for the LLM
@@ -112,13 +121,14 @@ Be clear and honest - if you're not sure, say so and explain what additional inf
     return prompt
 
 
-def get_key_points_prompt(policy_text: str, max_points: int = 5) -> str:
+def get_key_points_prompt(policy_text: str, max_points: int = 5, language: str = "en") -> str:
     """
     Generate a prompt for extracting key points from a policy.
     
     Args:
         policy_text: The policy document text or excerpt
         max_points: Maximum number of key points to extract
+        language: Target language code
         
     Returns:
         Formatted prompt for the LLM
@@ -140,12 +150,13 @@ Format each point as:
     return prompt
 
 
-def get_benefits_summary_prompt(policy_text: str) -> str:
+def get_benefits_summary_prompt(policy_text: str, language: str = "en") -> str:
     """
     Generate a prompt for summarizing policy benefits.
     
     Args:
         policy_text: The policy document text or excerpt
+        language: Target language code
         
     Returns:
         Formatted prompt for the LLM
@@ -166,12 +177,13 @@ Use simple language and focus on practical, tangible benefits that matter to eve
     return prompt
 
 
-def get_application_process_prompt(policy_text: str) -> str:
+def get_application_process_prompt(policy_text: str, language: str = "en") -> str:
     """
     Generate a prompt for explaining how to apply for a policy benefit.
     
     Args:
         policy_text: The policy document text or excerpt
+        language: Target language code
         
     Returns:
         Formatted prompt for the LLM

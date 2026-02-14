@@ -28,6 +28,9 @@ numpy>=1.24.0
 openai==1.12.0
 tiktoken==0.5.2
 
+# Language Detection
+langdetect==1.0.9
+
 # Development
 pytest==7.4.4
 httpx==0.26.0

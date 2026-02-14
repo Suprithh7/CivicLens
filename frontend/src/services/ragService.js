@@ -13,9 +13,10 @@ import { API_BASE_URL } from '../constants';
  * @param {number} [params.topK=5] - Number of chunks to retrieve
  * @param {number} [params.temperature] - LLM temperature
  * @param {string} [params.model] - LLM model to use
+ * @param {string} [params.language] - Language code for response (e.g., 'en', 'es', 'fr')
  * @returns {Promise<Object>} RAG response with answer and sources
  */
-export async function askQuestion({ query, policyId = null, topK = 5, temperature = null, model = null }) {
+export async function askQuestion({ query, policyId = null, topK = 5, temperature = null, model = null, language = null }) {
   const url = `${API_BASE_URL}/api/v1/rag/ask`;
 
   const requestBody = {
@@ -26,6 +27,7 @@ export async function askQuestion({ query, policyId = null, topK = 5, temperatur
   if (policyId) requestBody.policy_id = policyId;
   if (temperature !== null) requestBody.temperature = temperature;
   if (model) requestBody.model = model;
+  if (language) requestBody.language = language;
 
   try {
     const response = await fetch(url, {
@@ -56,6 +58,7 @@ export async function askQuestion({ query, policyId = null, topK = 5, temperatur
  * @param {number} [params.topK=5] - Number of chunks to retrieve
  * @param {number} [params.temperature] - LLM temperature
  * @param {string} [params.model] - LLM model to use
+ * @param {string} [params.language] - Language code for response (e.g., 'en', 'es', 'fr')
  * @param {Function} onChunk - Callback for each chunk received
  * @param {Function} onError - Callback for errors
  * @returns {Promise<void>}
@@ -66,6 +69,7 @@ export async function askQuestionStreaming({
   topK = 5,
   temperature = null,
   model = null,
+  language = null,
   onChunk,
   onError
 }) {
@@ -79,6 +83,7 @@ export async function askQuestionStreaming({
   if (policyId) requestBody.policy_id = policyId;
   if (temperature !== null) requestBody.temperature = temperature;
   if (model) requestBody.model = model;
+  if (language) requestBody.language = language;
 
   try {
     const response = await fetch(url, {

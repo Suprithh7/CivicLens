@@ -65,13 +65,20 @@ class SimplificationRequest(BaseModel):
         examples=["gpt-4-turbo-preview", "gpt-3.5-turbo"]
     )
     
+    language: Optional[str] = Field(
+        None,
+        description="Language code for the response (e.g., 'en', 'es', 'fr'). If not provided, auto-detects from user_situation or focus_area.",
+        examples=["en", "es", "fr", "hi", "zh-cn"]
+    )
+    
     class Config:
         json_schema_extra = {
             "example": {
                 "policy_id": "pol_abc123",
                 "explanation_type": "explanation",
                 "focus_area": "eligibility criteria",
-                "temperature": 0.7
+                "temperature": 0.7,
+                "language": "en"
             }
         }
 
@@ -85,6 +92,8 @@ class SimplificationResponse(BaseModel):
     simplified_text: str = Field(..., description="The simplified, plain-language explanation")
     model_used: str = Field(..., description="LLM model used for generation")
     timestamp: str = Field(..., description="ISO timestamp of when the explanation was generated")
+    detected_language: str = Field(..., description="Detected language code from the request")
+    response_language: str = Field(..., description="Language code of the response")
     
     class Config:
         json_schema_extra = {
@@ -94,6 +103,8 @@ class SimplificationResponse(BaseModel):
                 "explanation_type": "explanation",
                 "simplified_text": "This policy helps low-income families afford housing...",
                 "model_used": "gpt-4-turbo-preview",
-                "timestamp": "2026-02-13T22:26:00Z"
+                "timestamp": "2026-02-13T22:26:00Z",
+                "detected_language": "en",
+                "response_language": "en"
             }
         }

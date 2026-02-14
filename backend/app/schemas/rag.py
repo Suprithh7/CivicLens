@@ -44,13 +44,20 @@ class RAGQueryRequest(BaseModel):
         examples=["gpt-4-turbo-preview", "gpt-3.5-turbo"]
     )
     
+    language: Optional[str] = Field(
+        None,
+        description="Language code for the response (e.g., 'en', 'es', 'fr'). If not provided, auto-detects from query.",
+        examples=["en", "es", "fr", "hi", "zh-cn"]
+    )
+    
     class Config:
         json_schema_extra = {
             "example": {
                 "query": "What are the income requirements for this housing program?",
                 "policy_id": "pol_abc123",
                 "top_k": 5,
-                "temperature": 0.7
+                "temperature": 0.7,
+                "language": "en"
             }
         }
 
@@ -77,6 +84,8 @@ class RAGResponse(BaseModel):
     model_used: str = Field(..., description="LLM model used for generation")
     timestamp: str = Field(..., description="ISO timestamp of when the answer was generated")
     num_sources: int = Field(..., description="Number of source chunks used")
+    detected_language: str = Field(..., description="Detected language code from the query")
+    response_language: str = Field(..., description="Language code of the response")
     
     class Config:
         json_schema_extra = {
@@ -97,7 +106,9 @@ class RAGResponse(BaseModel):
                 "query": "What are the income requirements for this housing program?",
                 "model_used": "gpt-4-turbo-preview",
                 "timestamp": "2026-02-11T22:23:46Z",
-                "num_sources": 3
+                "num_sources": 3,
+                "detected_language": "en",
+                "response_language": "en"
             }
         }
 
