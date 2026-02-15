@@ -22,6 +22,11 @@ from app.services.language_service import (
     get_multilingual_instruction,
     get_language_name
 )
+from app.services.cache_service import (
+    generate_cache_key,
+    get_rag_cache,
+    set_rag_cache
+)
 from app.core.exceptions import CivicLensException
 
 logger = logging.getLogger(__name__)
@@ -167,6 +172,27 @@ async def answer_question(
     try:
         logger.info(f"Processing RAG query: '{query}' (policy_id={policy_id}, top_k={top_k})")
         
+        # Generate cache key
+        cache_key_data = {
+            "query": query,
+            "policy_id": policy_id or "all",
+            "language": language or "auto",
+            "top_k": top_k
+        }
+        cache_key = generate_cache_key(cache_key_data)
+        
+        # Check cache first
+        cached_response = get_rag_cache(cache_key)
+        if cached_response:
+            logger.info(f"Cache HIT for RAG query: '{query[:50]}...'")
+            # Add cache metadata
+            cached_response["cached"] = True
+            cached_response["cache_timestamp"] = cached_response["timestamp"]
+            cached_response["timestamp"] = datetime.utcnow().isoformat()
+            return cached_response
+        
+        logger.info(f"Cache MISS for RAG query: '{query[:50]}...'")
+        
         # Detect or normalize language
         if language:
             detected_lang = normalize_language_code(language)
@@ -239,8 +265,14 @@ async def answer_question(
             answer=answer,
             chunks=chunks,
             query=query,
-            model=model or "default"
+            model=model or "default",
+            detected_language=detected_lang,
+            response_language=response_lang
         )
+        
+        # Add cache flag and store in cache
+        response["cached"] = False
+        set_rag_cache(cache_key, response)
         
         logger.info(f"Successfully generated answer ({len(answer)} chars)")
         

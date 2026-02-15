@@ -136,6 +136,16 @@ class SimplificationResponse(BaseModel):
         description="Suggestions for getting a better or more complete answer"
     )
     
+    # Cache metadata
+    cached: bool = Field(
+        default=False,
+        description="Whether this response was served from cache"
+    )
+    cache_timestamp: Optional[str] = Field(
+        None,
+        description="Original timestamp when cached response was generated"
+    )
+    
     class Config:
         json_schema_extra = {
             "example": {

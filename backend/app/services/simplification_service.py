@@ -26,6 +26,11 @@ from app.services.policy_simplification_prompts import (
     get_application_process_prompt,
     get_scenario_based_prompt
 )
+from app.services.cache_service import (
+    generate_cache_key,
+    get_simplification_cache,
+    set_simplification_cache
+)
 from app.core.exceptions import CivicLensException
 
 logger = logging.getLogger(__name__)
@@ -304,7 +309,35 @@ async def simplify_policy(
         SimplificationError: If simplification fails
     """
     try:
-        logger.info(f"Simplifying policy {policy_id} with type '{explanation_type}'")
+        logger.info(
+            f"Simplifying policy {policy_id} "
+            f"(type={explanation_type}, language={language or 'auto'})"
+        )
+        
+        # Generate cache key
+        cache_key_data = {
+            "policy_id": policy_id,
+            "explanation_type": explanation_type,
+            "language": language or "auto",
+            "scenario_type": scenario_type,
+            "scenario_details": scenario_details,
+            "user_situation": user_situation,
+            "focus_area": focus_area,
+            "max_points": max_points
+        }
+        cache_key = generate_cache_key(cache_key_data)
+        
+        # Check cache first
+        cached_response = get_simplification_cache(cache_key)
+        if cached_response:
+            logger.info(f"Cache HIT for policy {policy_id} ({explanation_type})")
+            # Add cache metadata
+            cached_response["cached"] = True
+            cached_response["cache_timestamp"] = cached_response["timestamp"]
+            cached_response["timestamp"] = datetime.utcnow().isoformat()
+            return cached_response
+        
+        logger.info(f"Cache MISS for policy {policy_id} ({explanation_type})")
         
         # Detect or normalize language
         if language:
@@ -443,8 +476,12 @@ async def simplify_policy(
             "confidence_level": uncertainty_info["confidence"],
             "missing_information": uncertainty_info["missing_info"] if uncertainty_info["missing_info"] else None,
             "is_partial_answer": uncertainty_info["has_partial_answer"],
-            "suggestions": uncertainty_info["suggestions"] if uncertainty_info["suggestions"] else None
+            "suggestions": uncertainty_info["suggestions"] if uncertainty_info["suggestions"] else None,
+            "cached": False
         }
+        
+        # Store in cache
+        set_simplification_cache(cache_key, response)
         
         logger.info(
             f"Generated {explanation_type} explanation for policy {policy_id} "
