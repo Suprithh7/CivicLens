@@ -1,0 +1,147 @@
+.scenario-explanation {
+  width: 100%;
+  margin: 20px 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.explanation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.header-content h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.5rem;
+}
+
+.policy-title {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.copy-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.copy-btn.copied {
+  background: rgba(76, 175, 80, 0.3);
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+.explanation-content {
+  padding: 24px;
+}
+
+.explanation-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #ddd;
+}
+
+.explanation-section:last-child {
+  margin-bottom: 0;
+}
+
+.applies-section {
+  border-left-color: #4caf50;
+  background: #f1f8f4;
+}
+
+.benefits-section {
+  border-left-color: #2196f3;
+  background: #e3f2fd;
+}
+
+.requirements-section {
+  border-left-color: #ff9800;
+  background: #fff3e0;
+}
+
+.steps-section {
+  border-left-color: #9c27b0;
+  background: #f3e5f5;
+}
+
+.dates-section {
+  border-left-color: #f44336;
+  background: #ffebee;
+}
+
+.documents-section {
+  border-left-color: #607d8b;
+  background: #eceff1;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.section-icon {
+  font-size: 1.5rem;
+  margin-right: 10px;
+}
+
+.section-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.section-content {
+  color: #444;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .explanation-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .copy-btn {
+    align-self: flex-end;
+  }
+
+  .explanation-content {
+    padding: 16px;
+  }
+
+  .explanation-section {
+    padding: 16px;
+  }
+
+  .section-icon {
+    font-size: 1.25rem;
+  }
+
+  .section-header h4 {
+    font-size: 1rem;
+  }
+}

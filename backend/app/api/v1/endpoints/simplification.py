@@ -23,7 +23,7 @@ router = APIRouter()
     summary="Get simplified policy explanation",
     description="Transform complex policy documents into accessible, plain-language explanations. "
                 "Supports multiple explanation types: general explanation, eligibility check, "
-                "key points, benefits summary, and application process."
+                "key points, benefits summary, application process, and scenario-based explanations."
 )
 async def explain_policy(
     request: SimplificationRequest,
@@ -64,6 +64,16 @@ async def explain_policy(
                 }
             )
         
+        # Validate scenario type requirements
+        if request.explanation_type == "scenario" and not request.scenario_type:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "scenario_type is required for scenario-based explanations",
+                    "explanation_type": request.explanation_type
+                }
+            )
+        
         # Generate simplified explanation
         response = await simplify_policy(
             policy_id=request.policy_id,
@@ -74,7 +84,9 @@ async def explain_policy(
             max_points=request.max_points,
             model=request.model,
             temperature=request.temperature,
-            language=request.language
+            language=request.language,
+            scenario_type=request.scenario_type,
+            scenario_details=request.scenario_details
         )
         
         return SimplificationResponse(**response)
@@ -160,7 +172,8 @@ async def health_check():
             "eligibility",
             "key_points",
             "benefits",
-            "application"
+            "application",
+            "scenario"
         ]
     }
     

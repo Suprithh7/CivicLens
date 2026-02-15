@@ -7,6 +7,21 @@ from typing import Dict, Optional
 from app.services.language_service import get_multilingual_instruction, get_language_name
 
 
+# Scenario type descriptions for user-friendly display
+SCENARIO_DESCRIPTIONS: Dict[str, str] = {
+    "student": "College or university students",
+    "senior_citizen": "Elderly individuals (65+ years)",
+    "small_business_owner": "Entrepreneurs and small business operators",
+    "parent": "Parents with dependent children",
+    "low_income": "Individuals below certain income thresholds",
+    "veteran": "Military veterans",
+    "disabled": "Individuals with disabilities",
+    "first_time_homebuyer": "People looking to purchase their first home",
+    "unemployed": "Job seekers and unemployed individuals",
+    "general_citizen": "General public"
+}
+
+
 # System message for policy simplification
 def POLICY_SIMPLIFICATION_SYSTEM_MESSAGE(language: str = "en") -> str:
     """Get the system message for policy simplification in the specified language."""
@@ -206,13 +221,91 @@ Make this as practical and actionable as possible - like a friendly guide walkin
     return prompt
 
 
+def get_scenario_based_prompt(
+    policy_text: str,
+    scenario_type: str,
+    policy_title: Optional[str] = None,
+    scenario_details: Optional[str] = None,
+    language: str = "en"
+) -> str:
+    """
+    Generate a prompt for explaining a policy from a specific user scenario perspective.
+    
+    Args:
+        policy_text: The policy document text or excerpt
+        scenario_type: Type of user scenario (e.g., "student", "senior_citizen")
+        policy_title: Optional title of the policy
+        scenario_details: Optional additional details about the user's scenario
+        language: Target language code
+        
+    Returns:
+        Formatted prompt for the LLM
+    """
+    title_section = f"\n\nPolicy Title: {policy_title}" if policy_title else ""
+    
+    # Get scenario description
+    scenario_desc = SCENARIO_DESCRIPTIONS.get(
+        scenario_type,
+        scenario_type.replace("_", " ").title()
+    )
+    
+    # Build scenario context
+    scenario_context = f"a {scenario_desc.lower()}"
+    if scenario_details:
+        scenario_context += f" ({scenario_details})"
+    
+    prompt = f"""Explain the following government policy from the perspective of {scenario_context}.
+
+{title_section}
+
+Policy Document:
+{policy_text}
+
+Please provide a scenario-specific explanation with the following sections:
+
+1. **Does This Apply to You?**
+   - Clear YES or NO answer
+   - Brief explanation of why or why not
+   - If partially applicable, explain which parts apply
+
+2. **What You Get**
+   - Specific benefits, services, or advantages for this scenario
+   - Real-world examples relevant to this user type
+   - Financial benefits (subsidies, grants, tax breaks) if applicable
+
+3. **What You Need**
+   - Eligibility requirements specific to this scenario
+   - Any special conditions or restrictions
+   - Income limits, age requirements, or other criteria
+
+4. **Next Steps**
+   - Clear, actionable steps to take advantage of this policy
+   - Where to apply or how to access benefits
+   - Who to contact for help
+
+5. **Important Dates**
+   - Application deadlines
+   - When benefits start/end
+   - Any time-sensitive actions
+
+6. **Required Documents**
+   - List of documents needed to apply
+   - Where to obtain these documents
+   - Any special documentation for this scenario
+
+Write in simple, everyday language as if you're explaining this to a friend who fits this scenario. Focus on practical, actionable information that matters to their specific situation."""
+    
+    return prompt
+
+
 # Prompt templates dictionary for easy access
 PROMPT_TEMPLATES: Dict[str, callable] = {
     "explanation": get_policy_explanation_prompt,
     "eligibility": get_eligibility_check_prompt,
     "key_points": get_key_points_prompt,
     "benefits": get_benefits_summary_prompt,
-    "application": get_application_process_prompt
+    "application": get_application_process_prompt,
+    "scenario": get_scenario_based_prompt
 }
 
 

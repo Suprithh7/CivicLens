@@ -15,6 +15,7 @@ class ExplanationType(str, Enum):
     KEY_POINTS = "key_points"
     BENEFITS = "benefits"
     APPLICATION = "application"
+    SCENARIO = "scenario"
 
 
 class SimplificationRequest(BaseModel):
@@ -71,15 +72,37 @@ class SimplificationRequest(BaseModel):
         examples=["en", "es", "fr", "hi", "zh-cn"]
     )
     
+    scenario_type: Optional[str] = Field(
+        None,
+        description="User scenario type for scenario-based explanations (required for 'scenario' type)",
+        examples=["student", "senior_citizen", "small_business_owner", "parent", "low_income", "veteran", "disabled", "first_time_homebuyer", "unemployed", "general_citizen"]
+    )
+    
+    scenario_details: Optional[str] = Field(
+        None,
+        description="Additional details about the user's scenario (optional for 'scenario' type)",
+        max_length=1000,
+        examples=["20 years old, full-time college student with part-time job", "65+ years old, retired, living on fixed income"]
+    )
+    
     class Config:
         json_schema_extra = {
-            "example": {
-                "policy_id": "pol_abc123",
-                "explanation_type": "explanation",
-                "focus_area": "eligibility criteria",
-                "temperature": 0.7,
-                "language": "en"
-            }
+            "examples": [
+                {
+                    "policy_id": "pol_abc123",
+                    "explanation_type": "explanation",
+                    "focus_area": "eligibility criteria",
+                    "temperature": 0.7,
+                    "language": "en"
+                },
+                {
+                    "policy_id": "pol_abc123",
+                    "explanation_type": "scenario",
+                    "scenario_type": "student",
+                    "scenario_details": "20 years old, full-time college student",
+                    "language": "en"
+                }
+            ]
         }
 
 

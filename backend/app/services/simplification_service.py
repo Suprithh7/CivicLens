@@ -23,7 +23,8 @@ from app.services.policy_simplification_prompts import (
     get_eligibility_check_prompt,
     get_key_points_prompt,
     get_benefits_summary_prompt,
-    get_application_process_prompt
+    get_application_process_prompt,
+    get_scenario_based_prompt
 )
 from app.core.exceptions import CivicLensException
 
@@ -124,7 +125,9 @@ async def simplify_policy(
     max_points: int = 5,
     model: Optional[str] = None,
     temperature: Optional[float] = None,
-    language: Optional[str] = None
+    language: Optional[str] = None,
+    scenario_type: Optional[str] = None,
+    scenario_details: Optional[str] = None
 ) -> Dict:
     """
     Generate a simplified explanation of a policy document.
@@ -132,13 +135,15 @@ async def simplify_policy(
     Args:
         policy_id: Policy identifier
         db: Database session
-        explanation_type: Type of explanation (explanation, eligibility, key_points, benefits, application)
+        explanation_type: Type of explanation (explanation, eligibility, key_points, benefits, application, scenario)
         user_situation: User's situation for eligibility checks
         focus_area: Specific aspect to focus on
         max_points: Maximum number of key points (for key_points type)
         model: LLM model to use
         temperature: Sampling temperature
         language: Target language code (auto-detects if not provided)
+        scenario_type: User scenario type (required for scenario type)
+        scenario_details: Additional scenario details (optional for scenario type)
         
     Returns:
         Dictionary with simplified explanation and metadata
@@ -216,12 +221,28 @@ async def simplify_policy(
             )
             temp = temperature if temperature is not None else 0.5
             
+        elif explanation_type == "scenario":
+            if not scenario_type:
+                raise SimplificationError(
+                    "scenario_type is required for scenario-based explanations",
+                    details={"explanation_type": explanation_type}
+                )
+            prompt = get_scenario_based_prompt(
+                policy_text=policy_text,
+                scenario_type=scenario_type,
+                policy_title=policy_title,
+                scenario_details=scenario_details,
+                language=response_lang
+            )
+            # Use moderate temperature for balanced factual + helpful tone
+            temp = temperature if temperature is not None else 0.5
+            
         else:
             raise SimplificationError(
                 f"Invalid explanation type: {explanation_type}",
                 details={
                     "explanation_type": explanation_type,
-                    "valid_types": ["explanation", "eligibility", "key_points", "benefits", "application"]
+                    "valid_types": ["explanation", "eligibility", "key_points", "benefits", "application", "scenario"]
                 }
             )
         
