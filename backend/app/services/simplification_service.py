@@ -42,6 +42,158 @@ class SimplificationError(CivicLensException):
         )
 
 
+def detect_uncertainty(response_text: str, policy_text: str) -> Dict:
+    """
+    Detect uncertainty indicators in LLM response and policy data.
+    
+    Args:
+        response_text: The LLM's response
+        policy_text: The original policy text
+        
+    Returns:
+        Dictionary with uncertainty information:
+        {
+            "confidence": "high|medium|low|uncertain",
+            "missing_info": [list of missing data points],
+            "has_partial_answer": bool,
+            "suggestions": [list of suggestions]
+        }
+    """
+    uncertainty_indicators = {
+        "low": [
+            "i don't have enough information",
+            "insufficient information",
+            "cannot determine",
+            "unclear",
+            "not enough detail",
+            "need more information",
+            "missing information",
+            "incomplete",
+            "uncertain"
+        ],
+        "medium": [
+            "based on the available information",
+            "it appears",
+            "it seems",
+            "possibly",
+            "might",
+            "could be",
+            "may be",
+            "limited information"
+        ]
+    }
+    
+    response_lower = response_text.lower()
+    
+    # Check for explicit uncertainty markers
+    low_confidence_count = sum(1 for phrase in uncertainty_indicators["low"] if phrase in response_lower)
+    medium_confidence_count = sum(1 for phrase in uncertainty_indicators["medium"] if phrase in response_lower)
+    
+    # Check policy text length (very short = likely incomplete)
+    policy_too_short = len(policy_text.strip()) < 200
+    
+    # Determine confidence level
+    if low_confidence_count >= 2 or policy_too_short:
+        confidence = "low"
+    elif low_confidence_count >= 1 or medium_confidence_count >= 2:
+        confidence = "medium"
+    elif medium_confidence_count >= 1:
+        confidence = "medium"
+    else:
+        confidence = "high"
+    
+    # Extract missing information if mentioned
+    missing_info = []
+    suggestions = []
+    
+    if "need more" in response_lower or "missing" in response_lower:
+        has_partial_answer = True
+        if policy_too_short:
+            missing_info.append("Complete policy text")
+            suggestions.append("Re-upload the policy document")
+            suggestions.append("Verify the PDF is not corrupted")
+    else:
+        has_partial_answer = False
+    
+    # Add suggestions based on confidence
+    if confidence in ["low", "medium"]:
+        if not suggestions:
+            suggestions.append("Provide more details about your situation")
+            suggestions.append("Try a different scenario type if available")
+    
+    return {
+        "confidence": confidence,
+        "missing_info": missing_info,
+        "has_partial_answer": has_partial_answer,
+        "suggestions": suggestions
+    }
+
+
+def generate_fallback_response(
+    policy_id: str,
+    policy_title: Optional[str],
+    explanation_type: str,
+    reason: str = "insufficient_data"
+) -> str:
+    """
+    Generate a helpful fallback response when AI cannot provide a complete answer.
+    
+    Args:
+        policy_id: Policy identifier
+        policy_title: Policy title if available
+        explanation_type: Type of explanation requested
+        reason: Reason for fallback (insufficient_data, corrupted, too_short, etc.)
+        
+    Returns:
+        Fallback response text
+    """
+    title_text = f" for '{policy_title}'" if policy_title else ""
+    
+    if reason == "insufficient_data" or reason == "too_short":
+        return f"""⚠️ **Limited Information Available**
+
+I apologize, but I don't have enough information to provide a complete {explanation_type} explanation{title_text}.
+
+**What's the issue?**
+The policy document appears to be incomplete, very brief, or may not have been fully processed. I can only see a small portion of the text, which isn't sufficient to give you accurate guidance.
+
+**What you can do:**
+1. **Re-upload the document** - The PDF might be corrupted or incomplete
+2. **Check the file** - Make sure you uploaded the complete policy document
+3. **Try a different version** - If you have another copy of the policy, try uploading that
+4. **Contact support** - If the issue persists, our team can help investigate
+
+I want to make sure you get accurate information, so I'd rather be honest about limitations than provide potentially incorrect guidance."""
+
+    elif reason == "out_of_scope":
+        return f"""ℹ️ **This Policy May Not Apply to Your Scenario**
+
+Based on my analysis of the policy{title_text}, it doesn't appear to have specific provisions for your selected scenario.
+
+**What this means:**
+The policy may be designed for a different audience or situation than what you've described.
+
+**What you can do:**
+1. **Try a different scenario** - Select another option that might better match the policy
+2. **Search for related policies** - There may be other policies better suited to your situation
+3. **Read the general explanation** - Try the "general explanation" option to understand the policy's overall purpose
+
+**Need help?**
+If you believe this policy should apply to your situation, consider contacting the relevant government agency directly for clarification."""
+
+    else:
+        return f"""⚠️ **Unable to Process Request**
+
+I encountered an issue while trying to explain this policy{title_text}.
+
+**What you can do:**
+1. Try again in a few moments
+2. Try a different explanation type
+3. Contact support if the problem continues
+
+I apologize for the inconvenience!"""
+
+
 async def get_policy_text(policy_id: str, db: AsyncSession) -> tuple[str, Optional[str]]:
     """
     Retrieve policy text for simplification.
@@ -255,7 +407,30 @@ async def simplify_policy(
             temperature=temp
         )
         
-        # Format response
+        # Detect uncertainty and confidence level
+        uncertainty_info = detect_uncertainty(simplified_text, policy_text)
+        
+        # Check if policy text is too short - use fallback if needed
+        if len(policy_text.strip()) < 200:
+            logger.warning(f"Policy text too short ({len(policy_text)} chars), using fallback response")
+            simplified_text = generate_fallback_response(
+                policy_id=policy_id,
+                policy_title=policy_title,
+                explanation_type=explanation_type,
+                reason="too_short"
+            )
+            uncertainty_info = {
+                "confidence": "low",
+                "missing_info": ["Complete policy text"],
+                "has_partial_answer": False,
+                "suggestions": [
+                    "Re-upload the policy document",
+                    "Verify the PDF is not corrupted",
+                    "Try uploading a different version of the policy"
+                ]
+            }
+        
+        # Format response with uncertainty information
         response = {
             "policy_id": policy_id,
             "policy_title": policy_title,
@@ -264,10 +439,17 @@ async def simplify_policy(
             "model_used": model or "default",
             "timestamp": datetime.utcnow().isoformat(),
             "detected_language": detected_lang,
-            "response_language": response_lang
+            "response_language": response_lang,
+            "confidence_level": uncertainty_info["confidence"],
+            "missing_information": uncertainty_info["missing_info"] if uncertainty_info["missing_info"] else None,
+            "is_partial_answer": uncertainty_info["has_partial_answer"],
+            "suggestions": uncertainty_info["suggestions"] if uncertainty_info["suggestions"] else None
         }
         
-        logger.info(f"Successfully simplified policy {policy_id} ({len(simplified_text)} chars)")
+        logger.info(
+            f"Generated {explanation_type} explanation for policy {policy_id} "
+            f"(confidence: {uncertainty_info['confidence']}, {len(simplified_text)} chars)"
+        )
         
         return response
         

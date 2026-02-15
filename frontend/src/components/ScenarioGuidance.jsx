@@ -104,6 +104,10 @@ const ScenarioGuidance = ({ policyId, policyTitle }) => {
           explanation={explanation.simplified_text}
           scenarioType={selectedScenario}
           policyTitle={explanation.policy_title || policyTitle}
+          confidenceLevel={explanation.confidence_level}
+          missingInformation={explanation.missing_information}
+          isPartialAnswer={explanation.is_partial_answer}
+          suggestions={explanation.suggestions}
         />
       )}
     </div>

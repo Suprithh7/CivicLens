@@ -3,7 +3,7 @@ Pydantic schemas for policy simplification endpoints.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
@@ -117,6 +117,24 @@ class SimplificationResponse(BaseModel):
     timestamp: str = Field(..., description="ISO timestamp of when the explanation was generated")
     detected_language: str = Field(..., description="Detected language code from the request")
     response_language: str = Field(..., description="Language code of the response")
+    
+    # Uncertainty and confidence fields
+    confidence_level: str = Field(
+        default="high",
+        description="AI confidence level: high, medium, low, or uncertain"
+    )
+    missing_information: Optional[List[str]] = Field(
+        None,
+        description="List of missing data points that would improve the answer"
+    )
+    is_partial_answer: bool = Field(
+        default=False,
+        description="Whether this is a partial answer due to insufficient information"
+    )
+    suggestions: Optional[List[str]] = Field(
+        None,
+        description="Suggestions for getting a better or more complete answer"
+    )
     
     class Config:
         json_schema_extra = {

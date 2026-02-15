@@ -1,12 +1,21 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import UncertaintyIndicator from './UncertaintyIndicator';
 import './ScenarioExplanation.css';
 
 /**
  * ScenarioExplanation Component
  * Displays scenario-based policy explanations with structured formatting
  */
-const ScenarioExplanation = ({ explanation, scenarioType, policyTitle }) => {
+const ScenarioExplanation = ({
+  explanation,
+  scenarioType,
+  policyTitle,
+  confidenceLevel = 'high',
+  missingInformation = null,
+  isPartialAnswer = false,
+  suggestions = null
+}) => {
   const [copied, setCopied] = React.useState(false);
 
   const handleCopy = () => {
@@ -61,6 +70,13 @@ const ScenarioExplanation = ({ explanation, scenarioType, policyTitle }) => {
           {copied ? '✓ Copied!' : '📋 Copy'}
         </button>
       </div>
+
+      <UncertaintyIndicator
+        confidenceLevel={confidenceLevel}
+        missingInformation={missingInformation}
+        isPartialAnswer={isPartialAnswer}
+        suggestions={suggestions}
+      />
 
       <div className="explanation-content">
         {sections.applies && (
@@ -152,7 +168,11 @@ const ScenarioExplanation = ({ explanation, scenarioType, policyTitle }) => {
 ScenarioExplanation.propTypes = {
   explanation: PropTypes.string.isRequired,
   scenarioType: PropTypes.string,
-  policyTitle: PropTypes.string
+  policyTitle: PropTypes.string,
+  confidenceLevel: PropTypes.oneOf(['high', 'medium', 'low', 'uncertain']),
+  missingInformation: PropTypes.arrayOf(PropTypes.string),
+  isPartialAnswer: PropTypes.bool,
+  suggestions: PropTypes.arrayOf(PropTypes.string)
 };
 
 export default ScenarioExplanation;
