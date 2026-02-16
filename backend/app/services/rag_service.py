@@ -27,6 +27,7 @@ from app.services.cache_service import (
     get_rag_cache,
     set_rag_cache
 )
+from app.services.evaluation_service import evaluate_output
 from app.core.exceptions import CivicLensException
 
 logger = logging.getLogger(__name__)
@@ -101,7 +102,8 @@ def _format_response(
     query: str,
     model: str,
     detected_language: str,
-    response_language: str
+    response_language: str,
+    include_evaluation: bool = True
 ) -> Dict:
     """
     Format the RAG response with answer and sources.
@@ -113,6 +115,7 @@ def _format_response(
         model: Model used for generation
         detected_language: Detected language from query
         response_language: Language of the response
+        include_evaluation: Whether to include evaluation metrics
         
     Returns:
         Formatted response dictionary
@@ -130,7 +133,7 @@ def _format_response(
             "end_char": chunk.get("end_char")
         })
     
-    return {
+    response = {
         "answer": answer,
         "sources": sources,
         "query": query,
@@ -140,6 +143,26 @@ def _format_response(
         "detected_language": detected_language,
         "response_language": response_language
     }
+    
+    # Add evaluation metrics if requested
+    if include_evaluation:
+        try:
+            evaluation_metrics = evaluate_output(
+                answer=answer,
+                query=query,
+                sources=sources
+            )
+            response["evaluation"] = evaluation_metrics
+            logger.info(
+                f"Evaluation: confidence={evaluation_metrics['overall_confidence']:.2f}, "
+                f"flags={len(evaluation_metrics['quality_flags'])}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to evaluate output: {e}")
+            # Don't fail the request if evaluation fails
+            response["evaluation"] = None
+    
+    return response
 
 
 async def answer_question(
@@ -218,7 +241,10 @@ async def answer_question(
                 top_k=top_k
             )
         
-        chunks = search_results.get("results", [])
+        chunks = search_results
+        logger.info(f"DEBUG: chunks type: {type(chunks)}")
+        if chunks:
+            logger.info(f"DEBUG: first chunk type: {type(chunks[0])}")
         
         if not chunks:
             logger.warning(f"No relevant chunks found for query: '{query}'")
@@ -347,7 +373,7 @@ async def answer_question_streaming(
                 top_k=top_k
             )
         
-        chunks = search_results.get("results", [])
+        chunks = search_results
         
         # Yield sources first
         yield {
@@ -395,19 +421,21 @@ async def answer_question_streaming(
         system_message, user_prompt = _construct_prompt(query, chunks, response_lang)
         
         # Step 3: Stream answer
+        full_answer = ""
         async for chunk in generate_completion_streaming(
             prompt=user_prompt,
             system_message=system_message,
             model=model,
             temperature=temperature
         ):
+            full_answer += chunk
             yield {
                 "type": "answer",
                 "content": chunk,
                 "done": False
             }
         
-        # Signal completion
+        # Signal answer completion but keep stream open for evaluation
         yield {
             "type": "answer",
             "content": "",
@@ -415,6 +443,28 @@ async def answer_question_streaming(
         }
         
         logger.info("Streaming answer generation completed")
+        
+        # Step 4: Run evaluation
+        try:
+            evaluation_metrics = evaluate_output(
+                answer=full_answer,
+                query=query,
+                sources=sources
+            )
+            
+            yield {
+                "type": "evaluation",
+                "evaluation": evaluation_metrics
+            }
+            
+            logger.info(
+                f"Streamed evaluation: confidence={evaluation_metrics['overall_confidence']:.2f}, "
+                f"flags={len(evaluation_metrics['quality_flags'])}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to evaluate streaming output: {e}")
+            # Yield empty evaluation or error? For now just log it.
+
         
     except LLMError as e:
         logger.error(f"LLM error in streaming RAG pipeline: {e}")

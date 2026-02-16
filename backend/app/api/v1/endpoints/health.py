@@ -6,7 +6,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/health",
+    "/",
     response_model=HealthResponse,
     summary="Health Check",
     description="Returns the health status of the API and basic app information."

@@ -31,6 +31,7 @@ from app.services.cache_service import (
     get_simplification_cache,
     set_simplification_cache
 )
+from app.services.evaluation_service import evaluate_output
 from app.core.exceptions import CivicLensException
 
 logger = logging.getLogger(__name__)
@@ -463,7 +464,25 @@ async def simplify_policy(
                 ]
             }
         
-        # Format response with uncertainty information
+        # Run evaluation on the simplified text
+        evaluation_metrics = None
+        try:
+            # For simplification, we don't have "sources" in the same way as RAG
+            # But we can pass the policy text as context
+            evaluation_metrics = evaluate_output(
+                answer=simplified_text,
+                query=f"Explain this policy ({explanation_type})",
+                sources=[],  # No chunked sources for simplification
+                context={"policy_text": policy_text}
+            )
+            logger.info(
+                f"Simplification evaluation: confidence={evaluation_metrics['overall_confidence']:.2f}, "
+                f"flags={len(evaluation_metrics['quality_flags'])}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to evaluate simplification output: {e}")
+        
+        # Format response with uncertainty information and evaluation
         response = {
             "policy_id": policy_id,
             "policy_title": policy_title,
@@ -477,6 +496,7 @@ async def simplify_policy(
             "missing_information": uncertainty_info["missing_info"] if uncertainty_info["missing_info"] else None,
             "is_partial_answer": uncertainty_info["has_partial_answer"],
             "suggestions": uncertainty_info["suggestions"] if uncertainty_info["suggestions"] else None,
+            "evaluation": evaluation_metrics,
             "cached": False
         }
         

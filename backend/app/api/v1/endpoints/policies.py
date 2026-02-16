@@ -145,7 +145,7 @@ async def upload_policy(
             file_size=db_policy.file_size,
             content_type=db_policy.content_type,
             upload_timestamp=db_policy.created_at,
-            storage_path=str(file_path.relative_to(Path.cwd())),
+            storage_path=str(file_path),
             status=db_policy.status.value
         )
         

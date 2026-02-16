@@ -75,6 +75,21 @@ class SourceChunk(BaseModel):
     end_char: int = Field(..., description="Ending character position in original document")
 
 
+class EvaluationMetrics(BaseModel):
+    """Evaluation metrics for AI-generated outputs."""
+    
+    relevance_score: float = Field(..., description="How relevant the answer is to the query (0-1)")
+    coherence_score: float = Field(..., description="Coherence and readability of the answer (0-1)")
+    completeness_score: float = Field(..., description="Whether the answer provides sufficient detail (0-1)")
+    source_grounding_score: float = Field(..., description="How well claims are supported by sources (0-1)")
+    hallucination_risk: str = Field(..., description="Risk of hallucination: low, medium, or high")
+    citation_quality: float = Field(..., description="Quality of source citations (0-1)")
+    safety_score: float = Field(..., description="Safety score, 1.0 = safe (0-1)")
+    bias_indicators: List[str] = Field(..., description="List of potential bias indicators detected")
+    quality_flags: List[str] = Field(..., description="List of quality issues detected")
+    overall_confidence: float = Field(..., description="Overall confidence in the response (0-1)")
+
+
 class RAGResponse(BaseModel):
     """Response schema for RAG question answering."""
     
@@ -86,6 +101,9 @@ class RAGResponse(BaseModel):
     num_sources: int = Field(..., description="Number of source chunks used")
     detected_language: str = Field(..., description="Detected language code from the query")
     response_language: str = Field(..., description="Language code of the response")
+    evaluation: Optional[EvaluationMetrics] = Field(None, description="Evaluation metrics for the generated answer")
+    cached: Optional[bool] = Field(None, description="Whether this response was served from cache")
+
     
     class Config:
         json_schema_extra = {
@@ -108,7 +126,20 @@ class RAGResponse(BaseModel):
                 "timestamp": "2026-02-11T22:23:46Z",
                 "num_sources": 3,
                 "detected_language": "en",
-                "response_language": "en"
+                "response_language": "en",
+                "evaluation": {
+                    "relevance_score": 0.92,
+                    "coherence_score": 0.88,
+                    "completeness_score": 0.85,
+                    "source_grounding_score": 0.91,
+                    "hallucination_risk": "low",
+                    "citation_quality": 0.80,
+                    "safety_score": 1.0,
+                    "bias_indicators": [],
+                    "quality_flags": [],
+                    "overall_confidence": 0.89
+                },
+                "cached": False
             }
         }
 
@@ -116,11 +147,12 @@ class RAGResponse(BaseModel):
 class RAGStreamChunk(BaseModel):
     """Streaming response chunk for RAG."""
     
-    type: str = Field(..., description="Type of chunk: 'sources' or 'answer'")
+    type: str = Field(..., description="Type of chunk: 'sources', 'answer', or 'evaluation'")
     content: Optional[str] = Field(None, description="Content chunk (for answer type)")
     sources: Optional[List[SourceChunk]] = Field(None, description="Source chunks (for sources type)")
     num_sources: Optional[int] = Field(None, description="Number of sources (for sources type)")
     done: Optional[bool] = Field(None, description="Whether streaming is complete (for answer type)")
+    evaluation: Optional[EvaluationMetrics] = Field(None, description="Evaluation metrics (for evaluation type)")
     
     class Config:
         json_schema_extra = {
@@ -139,6 +171,14 @@ class RAGStreamChunk(BaseModel):
                     "type": "answer",
                     "content": "",
                     "done": True
+                },
+                {
+                    "type": "evaluation",
+                    "evaluation": {
+                        "relevance_score": 0.95,
+                        "coherence_score": 0.90,
+                        # ... other metrics
+                    }
                 }
             ]
         }

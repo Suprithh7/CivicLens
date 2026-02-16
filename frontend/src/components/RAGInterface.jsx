@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { askQuestionStreaming } from '../services/ragService';
 import SourceCard from './SourceCard';
+import EvaluationCard from './EvaluationCard';
 import './RAGInterface.css';
 
 /**
@@ -68,6 +69,8 @@ const RAGInterface = ({ policyId = null }) => {
               } else {
                 lastMessage.content += chunk.content || '';
               }
+            } else if (chunk.type === 'evaluation') {
+              lastMessage.evaluation = chunk.evaluation;
             }
 
             return newMessages;
@@ -169,6 +172,10 @@ const RAGInterface = ({ policyId = null }) => {
                         ))}
                       </div>
                     </div>
+                  )}
+
+                  {message.evaluation && (
+                    <EvaluationCard evaluation={message.evaluation} />
                   )}
                 </div>
               </div>
