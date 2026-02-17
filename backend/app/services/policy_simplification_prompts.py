@@ -32,33 +32,28 @@ def POLICY_SIMPLIFICATION_SYSTEM_MESSAGE(language: str = "en") -> str:
 Your mission is to transform complex legal and bureaucratic language into clear, simple explanations that anyone can understand.{language_instruction}
 
 Core Principles:
-1. **Use Plain Language**: Avoid jargon, legal terms, and bureaucratic language
-2. **Be Concise**: Get to the point quickly - citizens are busy
-3. **Be Accurate**: Never misrepresent or oversimplify to the point of inaccuracy
-4. **Be Empowering**: Help citizens understand what they can DO with this information
-5. **Be Inclusive**: Write for a 6th-8th grade reading level
-6. **Be Honest**: Admit when information is insufficient or uncertain
+1. **Use Plain Language**: Avoid jargon, legal terms, and bureaucratic language. Use words a 6th grader would understand.
+2. **Be Concise**: Short sentences. Subject-Verb-Object structure. No fluff.
+3. **Be Accurate**: Simplify but do not change the meaning.
+4. **Be Empowering**: Focus on what the user can DO or GET.
+5. **Be Inclusive**: Explain as if talking to a friend, not a lawyer.
+6. **Be Honest**: Admit when information is missing.
 
 Guidelines:
-- Replace complex terms with everyday words (e.g., "utilize" → "use", "commence" → "start")
-- Break down long sentences into shorter ones
-- Use active voice instead of passive voice
-- Include practical examples when helpful
-- Highlight key actions citizens need to take
-- Explain eligibility criteria in simple terms
-- Clarify deadlines and important dates
-- Point out required documents or information
+- **Structure**: Use bullet points and bold text for key terms to make it scannable.
+- **Vocabulary**: Replace "utilize" with "use", "commence" with "start", "pursuant to" with "according to".
+- **Tone**: Friendly, helpful, and direct.
+- **Formatting**:
+  - Use **Bold** for important terms or deadlines.
+  - Use bullet points for lists.
+  - Keep paragraphs short (2-3 sentences max).
 
 Uncertainty Handling:
-- If policy information is incomplete, unclear, or too brief, explicitly state what's missing
-- If you cannot determine applicability with certainty, clearly indicate your confidence level
-- If required information is missing from the user's scenario, list what additional details would help
-- Never make up information or guess - be honest about limitations
-- Provide partial answers when possible, clearly marking which parts are certain vs uncertain
-- Use phrases like "Based on the available information..." or "I need more details about..." when appropriate
-- If the policy doesn't address the user's scenario, say so clearly and suggest alternatives
+- If policy information is incomplete, explicitely state: "The policy does not specify X."
+- If applicability is unclear, say: "It depends on..."
+- Never guess facts.
 
-Tone: Friendly, helpful, and respectful - like explaining to a neighbor over coffee."""
+Your goal is to make the user feel smart and capable, not confused by government speak."""
 
 
 def get_policy_explanation_prompt(
@@ -83,7 +78,7 @@ def get_policy_explanation_prompt(
     focus_section = f"\n\nPlease focus specifically on: {focus_area}" if focus_area else ""
     
     prompt = f"""Please explain the following government policy in simple, accessible language that any citizen can understand.
-
+    
 {title_section}
 
 Policy Document:
@@ -91,15 +86,19 @@ Policy Document:
 {focus_section}
 
 Your explanation should:
-1. Start with a one-sentence summary of what this policy is about
-2. Explain who this policy affects (who should care about this?)
-3. Describe the key benefits or changes this policy brings
-4. List any eligibility requirements in simple terms
-5. Explain what actions citizens need to take (if any)
-6. Highlight important deadlines or dates
-7. Mention any required documents or information
+1. **Header**: A one-sentence summary of what this policy is about.
+2. **Who is this for?**: Clear bullet points defining the target audience.
+3. **What you get**: The benefits or changes in simple terms.
+4. **Eligibility**: Rules for who qualifies.
+5. **Action Plan**: Numbered steps on what to do next.
+6. **Deadlines**: Important dates to remember (Bold these).
+7. **Documents Needed**: A checklist of required items.
 
-Remember: Write as if you're explaining this to a friend who has no background in law or government. Use everyday language and short sentences."""
+Remember:
+- Use **Bold** for key terms.
+- Keep sentences short.
+- No legal jargon.
+- Write as if explaining to a friend."""
     
     return prompt
 
@@ -135,13 +134,12 @@ Person's Situation:
 {user_situation}
 
 Please provide:
-1. **Eligibility Assessment**: Are they likely eligible? (Yes/Likely/Maybe/Unlikely/No)
-2. **Reasoning**: Explain why in simple language, referencing specific requirements
-3. **What They Need**: List any documents or information they'll need to apply
-4. **Next Steps**: What should they do next?
-5. **Important Notes**: Any deadlines, limitations, or special considerations
+1. **Eligibility Assessment**: Start with a clear YES, NO, or MAYBE.
+2. **The Reason**: Explain why in 1-2 simple sentences. Reference specific rules.
+3. **Missing Info**: If "MAYBE", list exactly what else you need to know.
+4. **Action Items**: What documents do they need to prove this?
 
-Be clear and honest - if you're not sure, say so and explain what additional information would help."""
+Be direct. Do not hedge unless the policy itself is unclear."""
     
     return prompt
 
@@ -164,13 +162,12 @@ Policy Document:
 {policy_text}
 
 For each key point:
-- Use one clear sentence in plain language
-- Focus on practical impact (what does this mean for people's lives?)
-- Avoid legal jargon
-- Highlight actions citizens need to take
+- Start with a **Bold Headline** (3-5 words).
+- Follow with one sentence explanation in plain English.
+- Focus on actions or benefits.
 
-Format each point as:
-• [Key Point in simple language]"""
+Format:
+- **[Headline]**: [Explanation]"""
     
     return prompt
 
@@ -192,12 +189,12 @@ Policy Document:
 {policy_text}
 
 Please explain:
-1. **What You Get**: What specific benefits, services, or advantages does this policy provide?
-2. **Who Benefits Most**: Which groups of people will benefit the most?
-3. **Real-World Impact**: How will this improve people's daily lives? Use concrete examples.
-4. **Money Matters**: Are there any financial benefits (subsidies, tax breaks, grants, etc.)?
+1. **The Big Win**: What is the single most important benefit?
+2. **Who Wins**: Specific groups who get help (e.g., "Students", "Veterans").
+3. **Money**: Exact amounts, tax breaks, or subsidies.
+4. **Life Impact**: How does this change daily life?
 
-Use simple language and focus on practical, tangible benefits that matter to everyday people."""
+Format as a bulleted list. Use concrete examples."""
     
     return prompt
 
@@ -219,14 +216,14 @@ Policy Document:
 {policy_text}
 
 Please provide:
-1. **Step-by-Step Process**: Clear numbered steps for how to apply
-2. **Required Documents**: List everything they need to gather
-3. **Where to Apply**: Online portal, office location, or other submission method
-4. **Timeline**: How long does the process take? When will they hear back?
-5. **Costs**: Are there any fees or costs involved?
-6. **Help Available**: Where can they get help if they have questions?
+1. **The Checklist**: What documents do they need BEFORE starting?
+2. **The Steps**: Numbered list (Start with Step 1).
+3. **Where**: Exact website URLs or office addresses if mentioned.
+4. **Timeline**: When to apply and how long it takes.
+5. **Cost**: Application fees (or "Free").
+6. **Help**: Phone numbers or helpdesks.
 
-Make this as practical and actionable as possible - like a friendly guide walking them through the process."""
+Make this a "How-To Guide"."""
     
     return prompt
 

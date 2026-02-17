@@ -1,0 +1,15 @@
+Testing Evaluation Fix...
+
+Running evaluate_output...
+
+Evaluation Results:
+Confidence: 0.68
+Grounding Score: 0.71
+Coherence Score: 1.0
+Completeness Score: 1.0
+Quality Flags: ['low_relevance']
+✅ Grounding Score Check Passed
+✅ Coherence Score Check Passed
+✅ 'no_sources' Flag Check Passed
+
+Test Summary: PASSED

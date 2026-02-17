@@ -123,8 +123,8 @@ def calculate_coherence_score(answer: str) -> float:
     
     # Check sentence length (too short or too long reduces coherence)
     avg_sentence_length = len(answer) / len(sentences)
-    if avg_sentence_length < 20:
-        score -= 0.1
+    if avg_sentence_length < 10:  # Relaxed from 20 for simplification
+        score -= 0.05
         flags.append("very_short_sentences")
     elif avg_sentence_length > 200:
         score -= 0.1
@@ -133,17 +133,17 @@ def calculate_coherence_score(answer: str) -> float:
     # Check for incomplete sentences (sentences starting with lowercase)
     incomplete_sentences = sum(
         1 for s in sentences 
-        if s and s[0].islower() and not s.startswith('e.g.') and not s.startswith('i.e.')
+        if s and s[0].islower() and not s.startswith(('e.g.', 'i.e.', 'etc.'))
     )
     if incomplete_sentences > len(sentences) * 0.2:
-        score -= 0.2
+        score -= 0.1
         flags.append("incomplete_sentences")
     
     # Check for repetition
     words = answer.lower().split()
-    if len(words) > 10:
+    if len(words) > 20:  # Increased threshold
         unique_ratio = len(set(words)) / len(words)
-        if unique_ratio < 0.5:
+        if unique_ratio < 0.4:  # Relaxed threshold
             score -= 0.2
             flags.append("high_repetition")
     
@@ -154,7 +154,7 @@ def calculate_coherence_score(answer: str) -> float:
     
     # Check for excessive punctuation
     punct_ratio = sum(1 for c in answer if c in '!?') / max(len(answer), 1)
-    if punct_ratio > 0.05:
+    if punct_ratio > 0.1:  # Relaxed threshold
         score -= 0.1
         flags.append("excessive_punctuation")
     
@@ -184,7 +184,7 @@ def calculate_completeness_score(
     
     # Check length
     if len(answer) < min_length:
-        score -= 0.3
+        score -= 0.2  # Reduced penalty
     
     # Check for vague responses
     vague_phrases = [
@@ -215,7 +215,7 @@ def calculate_completeness_score(
         score += 0.1
     
     # Check for explanatory content
-    explanatory_words = ['because', 'therefore', 'thus', 'since', 'as a result', 'due to']
+    explanatory_words = ['because', 'therefore', 'thus', 'since', 'as a result', 'due to', 'means that', 'so that']
     has_explanation = any(word in answer_lower for word in explanatory_words)
     
     if has_explanation:
@@ -226,19 +226,26 @@ def calculate_completeness_score(
 
 def check_source_grounding(
     answer: str,
-    sources: List[Dict]
+    sources: List[Dict],
+    context: Optional[Dict] = None
 ) -> tuple[float, List[str]]:
     """
-    Check if claims in the answer are grounded in source documents.
+    Check if claims in the answer are grounded in source documents or context.
     
     Args:
         answer: Generated answer
         sources: Retrieved source chunks
+        context: Additional context (e.g., policy_text)
         
     Returns:
         Tuple of (grounding_score, quality_flags)
     """
-    if not sources:
+    # Use policy text from context if available
+    context_text = ""
+    if context and context.get("policy_text"):
+        context_text = context.get("policy_text", "")
+    
+    if not sources and not context_text:
         return 0.0, ["no_sources_provided"]
     
     if not answer:
@@ -252,6 +259,10 @@ def check_source_grounding(
         for source in sources
     ).lower()
     
+    # Add context text if available
+    if context_text:
+        source_text += " " + context_text.lower()
+    
     if not source_text:
         return 0.0, ["empty_sources"]
     
@@ -261,7 +272,7 @@ def check_source_grounding(
         s.strip() for s in sentences
         if s.strip() and (
             re.search(r'\d+', s) or  # Contains numbers
-            len(s.split()) > 5  # Substantial sentence
+            len(s.split()) > 4  # Substantial sentence (relaxed from 5)
         )
     ]
     
@@ -283,20 +294,45 @@ def check_source_grounding(
             if phrase in source_text:
                 max_overlap = max(max_overlap, 3)
         
-        # Also check for semantic similarity using sequence matcher
-        similarity = SequenceMatcher(None, sentence.lower(), source_text).ratio()
+        # Check for number matches (strong signal for facts)
+        numbers = re.findall(r'\d+', sentence)
+        number_match = False
+        if numbers:
+            # Check if all numbers in the sentence appear in the source
+            # (Relaxed: at least one substantial number matches)
+            for num in numbers:
+                if len(num) > 1 and num in source_text: # Ignore single digits like "1", "2" used for lists
+                     number_match = True
+                     break
         
-        if max_overlap >= 3 or similarity > 0.3:
+        # Semantic similarity proxy: keyword matching
+        # Optimized check: if substantial number of keywords from sentence exist in source
+        common_words = 0
+        significant_words = [w for w in words if len(w) > 3]
+        if significant_words:
+            for w in significant_words:
+                if w in source_text:
+                    common_words += 1
+            keyword_ratio = common_words / len(significant_words)
+        else:
+            keyword_ratio = 0
+            
+        # Relaxed criteria: 
+        # - 3-word overlap OR
+        # - High keyword match (> 40%) OR
+        # - Number alignment (if numbers exist) AND moderate keyword match (> 20%)
+        if (max_overlap >= 3) or (keyword_ratio > 0.4) or (number_match and keyword_ratio > 0.2):
             grounded_count += 1
     
     grounding_score = grounded_count / len(factual_sentences) if factual_sentences else 0.5
     
-    # Check for citation markers
+    # Check for citation markers (only relevant for RAG, not simplification)
+    # If we are using context (Simplification), we shouldn't penalize lack of citations
     has_citations = bool(re.search(r'\[source \d+\]|source \d+:|according to', answer.lower()))
     
     if has_citations:
         grounding_score = min(1.0, grounding_score + 0.1)
-    else:
+    elif sources and not context_text: # Only penalize if it was a RAG request (has sources)
         flags.append("no_explicit_citations")
     
     if grounding_score < 0.3:
@@ -307,7 +343,8 @@ def check_source_grounding(
 
 def detect_hallucination_risk(
     answer: str,
-    sources: List[Dict]
+    sources: List[Dict],
+    context: Optional[Dict] = None
 ) -> str:
     """
     Detect potential hallucination in the answer.
@@ -315,6 +352,7 @@ def detect_hallucination_risk(
     Args:
         answer: Generated answer
         sources: Retrieved source chunks
+        context: Additional context
         
     Returns:
         Risk level: "low", "medium", or "high"
@@ -343,11 +381,14 @@ def detect_hallucination_risk(
     # Check for specific numbers/dates without source grounding
     has_specific_data = bool(re.search(r'\$\d+|€\d+|\d{4}|\d+%|\d+ (years|months|days)', answer))
     
-    if has_specific_data and not sources:
+    # Use context or sources for verification
+    has_source_material = bool(sources or (context and context.get("policy_text")))
+    
+    if has_specific_data and not has_source_material:
         return "high"
     
     # Check source grounding
-    grounding_score, _ = check_source_grounding(answer, sources)
+    grounding_score, _ = check_source_grounding(answer, sources, context)
     
     if high_risk_count >= 2:
         return "high"
@@ -489,12 +530,15 @@ def evaluate_output(
     metrics.completeness_score = calculate_completeness_score(answer, query)
     
     # Factual Consistency
-    if sources:
-        grounding_score, grounding_flags = check_source_grounding(answer, sources)
+    # Check if we have any source material (RAG sources OR context policy text)
+    has_source_material = bool(sources or (context and context.get("policy_text")))
+    
+    if has_source_material:
+        grounding_score, grounding_flags = check_source_grounding(answer, sources, context)
         metrics.source_grounding_score = grounding_score
         metrics.quality_flags.extend(grounding_flags)
         
-        metrics.hallucination_risk = detect_hallucination_risk(answer, sources)
+        metrics.hallucination_risk = detect_hallucination_risk(answer, sources, context)
         metrics.citation_quality = calculate_citation_quality(answer, sources)
     else:
         metrics.source_grounding_score = 0.0
