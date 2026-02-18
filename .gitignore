@@ -71,3 +71,6 @@ embeddings/
 
 # Uploads
 uploads/
+
+# Generated files
+*.pdf

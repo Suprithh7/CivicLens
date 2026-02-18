@@ -514,7 +514,7 @@ async def simplify_policy(
         logger.error(f"LLM error during simplification: {e}")
         raise SimplificationError(
             "Failed to generate simplified explanation",
-            details={"error": str(e), "stage": "generation"}
+            details={"error": str(e), "stage": "generation", "upstream_details": e.details}
         )
     except SimplificationError:
         # Re-raise SimplificationErrors as-is
