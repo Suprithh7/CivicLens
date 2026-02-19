@@ -12,8 +12,20 @@ from app.models.policy import (
     ProcessingStage,
     ProcessingStatus,
 )
+from app.models.eligibility import (
+    UserEligibilityProfile,
+    EligibilityCheck,
+    FilingStatus,
+    CitizenshipStatus,
+    EmploymentStatus,
+    EmployerType,
+    EducationLevel,
+    LocationType,
+    EligibilityResult,
+)
 
 __all__ = [
+    # Policy models
     "Policy",
     "PolicyCategory",
     "PolicyTag",
@@ -22,4 +34,14 @@ __all__ = [
     "PolicyType",
     "ProcessingStage",
     "ProcessingStatus",
+    # Eligibility models
+    "UserEligibilityProfile",
+    "EligibilityCheck",
+    "FilingStatus",
+    "CitizenshipStatus",
+    "EmploymentStatus",
+    "EmployerType",
+    "EducationLevel",
+    "LocationType",
+    "EligibilityResult",
 ]
