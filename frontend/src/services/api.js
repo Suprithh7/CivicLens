@@ -133,6 +133,16 @@ export async function deletePolicy(policyId) {
   }
 }
 
+/**
+ * Submit (create/update) a user's eligibility profile
+ */
+export async function submitEligibilityProfile(profileData) {
+  return fetchAPI('/api/v1/eligibility/profile', {
+    method: 'POST',
+    body: JSON.stringify(profileData),
+  });
+}
+
 export default {
   checkHealth,
   getRootInfo,
@@ -140,4 +150,5 @@ export default {
   listPolicies,
   getPolicyById,
   deletePolicy,
+  submitEligibilityProfile,
 };
