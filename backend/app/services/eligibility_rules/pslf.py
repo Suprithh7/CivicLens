@@ -34,9 +34,19 @@ class RuleResult:
     Structured output from a deterministic eligibility rule evaluation.
     Mirrors the EligibilityCheck ORM fields so the caller can persist it
     directly.
+
+    Confidence scoring (0.0 – 1.0) reflects both the result tier and the
+    completeness of the profile data used to reach it:
+
+    * ``eligible``         → 1.0  (all criteria confirmed)
+    * ``not_eligible``     → 0.85 + 0.15 × completeness  (≥ 0.85)
+    * ``partial``          → 0.65 + 0.35 × completeness  (≥ 0.65)
+    * ``needs_more_info``  → completeness × 0.60          (0 – 0.60)
+
+    where ``completeness = answered_criteria / total_criteria``.
     """
     result: str                              # eligible | not_eligible | partial | needs_more_info
-    confidence: float = 1.0                  # Always 1.0 for deterministic rules
+    confidence: float = 1.0                  # 0.0 – 1.0, see docstring for formula
     matched: list[str] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
@@ -140,6 +150,52 @@ PSLF_CRITERIA = [
     _check_qualifying_payments,
     _check_citizenship,
 ]
+
+TOTAL_PSLF_CRITERIA = len(PSLF_CRITERIA)
+
+
+# ---------------------------------------------------------------------------
+# Confidence scoring
+# ---------------------------------------------------------------------------
+
+def _compute_confidence(
+    result: str,
+    matched: list[str],
+    failed: list[str],
+    missing: list[str],
+) -> float:
+    """
+    Compute a 0.0 – 1.0 confidence score for a deterministic eligibility result.
+
+    The score blends the *result tier* (how decisive the outcome is) with
+    *data completeness* (what fraction of criteria had enough information to
+    evaluate).
+
+    Tiers:
+    - eligible         → 1.0  (all criteria confirmed; maximum certainty)
+    - not_eligible     → 0.85 + 0.15 × completeness
+      Even a single confirmed hard failure makes us highly confident in the
+      denial; more complete data moves score toward 1.0.
+    - partial          → 0.65 + 0.35 × completeness
+      Core requirements pass but secondary one(s) fail; more data = more sure.
+    - needs_more_info  → completeness × 0.60
+      Low ceiling (≤ 0.60) since we can't make a real call yet; having some
+      data answered is better than none.
+    """
+    answered = len(matched) + len(failed)
+    total = answered + len(missing)
+    completeness = answered / total if total > 0 else 0.0
+
+    if result == "eligible":
+        return 1.0
+    elif result == "not_eligible":
+        raw = 0.85 + 0.15 * completeness
+    elif result == "partial":
+        raw = 0.65 + 0.35 * completeness
+    else:  # needs_more_info
+        raw = completeness * 0.60
+
+    return round(raw, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -251,9 +307,11 @@ def check_pslf(profile: "UserEligibilityProfile") -> RuleResult:
                 )
             )
 
+    confidence = _compute_confidence(result, matched, failed, missing_fields)
+
     return RuleResult(
         result=result,
-        confidence=1.0,
+        confidence=confidence,
         matched=matched,
         failed=failed,
         missing=missing_fields,

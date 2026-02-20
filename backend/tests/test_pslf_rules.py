@@ -217,16 +217,67 @@ class TestResultFields:
             r = check_pslf(call)
             assert isinstance(r.explanation, str) and len(r.explanation) > 20
 
-    def test_confidence_always_one(self):
-        """Deterministic rules always yield confidence = 1.0."""
-        profiles = [
-            _profile(),
-            _profile(has_federal_student_loans=False),
-            _profile(years_of_loan_payments=5.0),
-            _profile(employer_type=None),
+    def test_confidence_eligible_is_one(self):
+        """Fully eligible with all fields → confidence must be exactly 1.0."""
+        r = check_pslf(_profile())
+        assert r.confidence == 1.0
+
+    def test_confidence_not_eligible_range(self):
+        """not_eligible confidence falls in [0.85, 1.0]."""
+        cases = [
+            _profile(employment_status="employed_part_time"),  # all 6 answered
+            _profile(employer_type="private"),
+            _profile(citizenship_status="visa_holder"),
+            _profile(loan_in_default=True),
+            _profile(has_federal_student_loans=False),         # 5/6 answered
         ]
-        for p in profiles:
-            assert check_pslf(p).confidence == 1.0
+        for p in cases:
+            r = check_pslf(p)
+            assert r.result == "not_eligible"
+            assert 0.85 <= r.confidence <= 1.0, f"conf={r.confidence} out of [0.85,1.0]"
+
+    def test_confidence_partial_range(self):
+        """partial confidence falls in [0.65, 1.0]."""
+        for years in [5.0, 0.0]:
+            r = check_pslf(_profile(years_of_loan_payments=years))
+            assert r.result == "partial"
+            assert 0.65 <= r.confidence <= 1.0, f"conf={r.confidence} out of [0.65,1.0]"
+
+    def test_confidence_needs_more_info_range(self):
+        """needs_more_info confidence falls in [0.0, 0.60]."""
+        cases = [
+            SimpleNamespace(has_federal_student_loans=None, loan_in_default=None,
+                            employment_status=None, employer_type=None,
+                            years_of_loan_payments=None, citizenship_status=None),
+            _profile(employer_type=None),
+            _profile(years_of_loan_payments=None),
+        ]
+        for p in cases:
+            r = check_pslf(p)
+            assert r.result == "needs_more_info"
+            assert 0.0 <= r.confidence <= 0.60, f"conf={r.confidence} out of [0.0,0.60]"
+
+    def test_confidence_fully_blank_is_zero(self):
+        """Zero answered criteria → confidence must be 0.0."""
+        blank = SimpleNamespace(
+            has_federal_student_loans=None, loan_in_default=None,
+            employment_status=None, employer_type=None,
+            years_of_loan_payments=None, citizenship_status=None,
+        )
+        assert check_pslf(blank).confidence == 0.0
+
+    def test_confidence_increases_with_completeness(self):
+        """Providing more data raises confidence for needs_more_info."""
+        few = _profile(employer_type=None, years_of_loan_payments=None, citizenship_status=None)
+        more = _profile(years_of_loan_payments=None)
+        assert check_pslf(few).result == check_pslf(more).result == "needs_more_info"
+        assert check_pslf(more).confidence > check_pslf(few).confidence
+
+    def test_confidence_not_eligible_all_answered_is_one(self):
+        """When all 6 criteria are fully answered and one fails → confidence = 1.0."""
+        r = check_pslf(_profile(employment_status="employed_part_time"))
+        assert r.result == "not_eligible"
+        assert r.confidence == 1.0
 
     def test_result_type_is_string(self):
         r = check_pslf(_profile())
