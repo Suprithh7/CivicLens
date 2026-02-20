@@ -4,7 +4,7 @@ Aggregates all v1 endpoints.
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, policies, chunks, embeddings, search, rag, simplification, cache
+from app.api.v1.endpoints import health, policies, chunks, embeddings, search, rag, simplification, cache, eligibility
 
 api_router = APIRouter()
 
@@ -17,6 +17,5 @@ api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(rag.router, prefix="/rag", tags=["rag"])
 api_router.include_router(simplification.router, prefix="/simplification", tags=["simplification"])
 api_router.include_router(cache.router, prefix="/cache", tags=["cache"])
+api_router.include_router(eligibility.router, prefix="/eligibility", tags=["eligibility"])
 
-# Future endpoints will be added here:
-# api_router.include_router(eligibility.router, prefix="/eligibility", tags=["Eligibility"])
