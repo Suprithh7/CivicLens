@@ -6,7 +6,7 @@ import logging
 
 from app.config import settings
 from app.api.v1.router import api_router
-from app.core.database import close_db
+from app.core.database import close_db, init_db, ensure_audit_columns
 from app.core.logging_config import setup_logging
 from app.core.middleware import RequestLoggingMiddleware
 from app.core.exceptions import CivicLensException
@@ -79,6 +79,9 @@ async def startup_event():
     logger.info(f"💾 Database: {settings.DATABASE_URL.split('@')[-1]}")  # Hide credentials
     logger.info(f"🔗 Docs: http://{settings.HOST}:{settings.PORT}/docs")
     logger.info(f"📝 Logging: Level={settings.LOG_LEVEL}, Dir={settings.LOG_DIR}")
+    await init_db()
+    await ensure_audit_columns()
+    logger.info("✅ Database tables and audit columns ready")
 
 
 # Shutdown event

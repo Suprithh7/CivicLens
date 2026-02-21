@@ -387,6 +387,20 @@ class EligibilityCheckResponse(BaseModel):
     )
     created_at: datetime = Field(..., description="Timestamp of the check")
 
+    # Audit-only fields (present on reads, not required for writes)
+    profile_snapshot: Optional[dict] = Field(
+        None,
+        description="Point-in-time copy of all profile fields at check time"
+    )
+    engine_version: Optional[str] = Field(
+        None,
+        description="Rule engine version that produced the result (e.g. 'pslf_v1')"
+    )
+    requested_policy_slug: Optional[str] = Field(
+        None,
+        description="Raw policy slug submitted by the caller before normalisation"
+    )
+
     model_config = ConfigDict(
         from_attributes=True,
         protected_namespaces=(),  # allow 'model_used' field without warning

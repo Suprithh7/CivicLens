@@ -260,6 +260,19 @@ class EligibilityCheck(Base):
     missing_fields = Column(JSON, nullable=True)           # List[str]
 
     # -----------------------------------------------------------------------
+    # Audit / provenance
+    # -----------------------------------------------------------------------
+    # Snapshot of the profile fields AS THEY WERE when this check ran;
+    # ensures historical records are self-contained even if the profile changes
+    profile_snapshot = Column(JSON, nullable=True)         # Dict[str, Any]
+
+    # Identifies the rule set / engine version that produced this result
+    engine_version = Column(String(50), nullable=True)     # e.g. "pslf_v1"
+
+    # Raw policy slug as submitted by the caller (before normalisation)
+    requested_policy_slug = Column(String(100), nullable=True)  # e.g. "PSLF"
+
+    # -----------------------------------------------------------------------
     # Provenance
     # -----------------------------------------------------------------------
     model_used = Column(String(100), nullable=True)        # LLM that ran the check
@@ -285,6 +298,7 @@ class EligibilityCheck(Base):
         Index("idx_elig_check_policy", "policy_id"),
         Index("idx_elig_check_result", "result"),
         Index("idx_elig_check_profile_policy", "profile_id", "policy_id"),
+        Index("idx_elig_check_created", "created_at"),
     )
 
     def __repr__(self) -> str:

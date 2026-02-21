@@ -85,3 +85,28 @@ async def close_db() -> None:
     Should be called on application shutdown.
     """
     await engine.dispose()
+
+
+async def ensure_audit_columns() -> None:
+    """
+    Idempotently add the audit columns introduced for eligibility check history.
+
+    SQLite does not support ALTER TABLE ADD COLUMN IF NOT EXISTS, so we attempt
+    each ADD COLUMN and silently swallow OperationalError ("duplicate column").
+    This runs on every startup and is a no-op once the columns exist.
+    """
+    from sqlalchemy import text
+
+    new_columns = [
+        "ALTER TABLE eligibility_checks ADD COLUMN profile_snapshot TEXT",
+        "ALTER TABLE eligibility_checks ADD COLUMN engine_version VARCHAR(50)",
+        "ALTER TABLE eligibility_checks ADD COLUMN requested_policy_slug VARCHAR(100)",
+    ]
+
+    async with engine.begin() as conn:
+        for stmt in new_columns:
+            try:
+                await conn.execute(text(stmt))
+            except Exception:
+                # Column already exists — safe to ignore
+                pass
