@@ -5,15 +5,20 @@ import SourceCard from './SourceCard';
 import EvaluationCard from './EvaluationCard';
 import './RAGInterface.css';
 
+const MAX_QUERY = 500;
+const MIN_QUERY = 3;
+
 /**
  * RAGInterface Component
  * Chat-like interface for asking questions about policy documents
  */
 const RAGInterface = ({ policyId = null }) => {
   const [query, setQuery] = useState('');
+  const [queryError, setQueryError] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [lastSubmittedQuery, setLastSubmittedQuery] = useState(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -27,11 +32,28 @@ const RAGInterface = ({ policyId = null }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!query.trim()) return;
+    const trimmed = query.trim();
+
+    // Validate
+    if (trimmed.length < MIN_QUERY) {
+      setQueryError(`Please enter at least ${MIN_QUERY} characters.`);
+      return;
+    }
+    if (trimmed.length > MAX_QUERY) {
+      setQueryError(`Query must be ${MAX_QUERY} characters or fewer.`);
+      return;
+    }
+    if (trimmed === lastSubmittedQuery) {
+      setQueryError('You already asked this question. Try rephrasing for a different answer.');
+      return;
+    }
+
+    setQueryError(null);
+    setLastSubmittedQuery(trimmed);
 
     const userMessage = {
       type: 'user',
-      content: query,
+      content: trimmed,
       timestamp: new Date().toISOString(),
     };
 
@@ -205,22 +227,53 @@ const RAGInterface = ({ policyId = null }) => {
         )}
 
         <form onSubmit={handleSubmit} className="rag-input-form">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask a question about the policies..."
-            className="rag-input"
-            disabled={isLoading}
-          />
+          <div style={{ position: 'relative', flex: 1 }}>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => {
+                const val = e.target.value;
+                setQuery(val);
+                if (queryError) setQueryError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e);
+              }}
+              placeholder="Ask a question about the policies..."
+              className="rag-input"
+              disabled={isLoading}
+              maxLength={MAX_QUERY + 20}  /* allow typing to see counter go red */
+              aria-label="Question input"
+            />
+            {/* Character counter */}
+            <span
+              style={{
+                position: 'absolute',
+                right: 10,
+                bottom: 6,
+                fontSize: '0.72rem',
+                color: query.length >= MAX_QUERY - 10 ? '#ef4444' : '#94a3b8',
+                pointerEvents: 'none',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {query.length}/{MAX_QUERY}
+            </span>
+          </div>
           <button
             type="submit"
             className="rag-submit"
-            disabled={isLoading || !query.trim()}
+            disabled={isLoading || !query.trim() || query.length > MAX_QUERY}
           >
             {isLoading ? '⏳' : '🚀'} {isLoading ? 'Thinking...' : 'Ask'}
           </button>
         </form>
+        {/* Query validation error */}
+        {queryError && (
+          <p style={{ margin: '6px 0 0', fontSize: '0.8rem', color: '#ef4444' }}>
+            {queryError}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -123,7 +123,7 @@ function Reveal({ open, hint, children }) {
 
 // ─── step panels ─────────────────────────────────────────────────────────────
 
-function StepFinancial({ data, update, errors }) {
+function StepFinancial({ data, update, errors, validateField }) {
   return (
     <>
       {/* Privacy notice – only on first step */}
@@ -149,28 +149,31 @@ function StepFinancial({ data, update, errors }) {
             placeholder="e.g. 65000"
             value={data.annual_income}
             onChange={e => update('annual_income', e.target.value === '' ? '' : parseFloat(e.target.value))}
+            onBlur={() => validateField('annual_income', data.annual_income)}
           />
         </Field>
 
-        <Field label="Household Size">
+        <Field label="Household Size" error={errors.household_size}>
           <input
             id="household_size"
             type="number"
             min="1"
             max="50"
-            className="epf-input"
+            step="1"
+            className={`epf-input ${errors.household_size ? 'error' : ''}`}
             placeholder="e.g. 3"
             value={data.household_size}
             onChange={e => update('household_size', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+            onBlur={() => validateField('household_size', data.household_size)}
           />
         </Field>
 
-        <Field label="Tax Filing Status" optional>
+        <Field label="Tax Filing Status" optional error={errors.filing_status}>
           <select
             id="filing_status"
             className="epf-select"
             value={data.filing_status}
-            onChange={e => update('filing_status', e.target.value)}
+            onChange={e => { update('filing_status', e.target.value); validateField('filing_status', e.target.value, { ...data, filing_status: e.target.value }); }}
           >
             <option value="">— Select —</option>
             <option value="single">Single</option>
@@ -184,20 +187,21 @@ function StepFinancial({ data, update, errors }) {
   );
 }
 
-function StepDemographics({ data, update }) {
+function StepDemographics({ data, update, errors, validateField }) {
   return (
     <div>
       <div className="epf-fields" style={{ marginBottom: 24 }}>
-        <Field label="Age">
+        <Field label="Age" error={errors.age}>
           <input
             id="age"
             type="number"
             min="0"
             max="130"
-            className="epf-input"
+            className={`epf-input ${errors.age ? 'error' : ''}`}
             placeholder="e.g. 34"
             value={data.age}
             onChange={e => update('age', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+            onBlur={() => validateField('age', data.age)}
           />
         </Field>
 
@@ -247,15 +251,17 @@ function StepDemographics({ data, update }) {
         hint="How many dependents do you claim?"
       >
         <div className="epf-fields">
-          <Field label="Number of Dependents" error={null}>
+          <Field label="Number of Dependents" error={errors.num_dependents}>
             <input
               id="num_dependents"
               type="number"
-              min="0"
-              className="epf-input"
+              min="1"
+              step="1"
+              className={`epf-input ${errors.num_dependents ? 'error' : ''}`}
               placeholder="e.g. 2"
               value={data.num_dependents}
               onChange={e => update('num_dependents', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              onBlur={() => validateField('num_dependents', data.num_dependents)}
             />
           </Field>
         </div>
@@ -269,7 +275,7 @@ const HAS_EMPLOYER = new Set([
   'employed_full_time', 'employed_part_time', 'self_employed', 'military',
 ]);
 
-function StepEmployment({ data, update }) {
+function StepEmployment({ data, update, errors, validateField }) {
   const hasEmployer = HAS_EMPLOYER.has(data.employment_status);
 
   return (
@@ -332,16 +338,17 @@ function StepEmployment({ data, update }) {
             </select>
           </Field>
 
-          <Field label="Years with Current Employer">
+          <Field label="Years with Current Employer" error={errors.years_employed}>
             <input
               id="years_employed"
               type="number"
               min="0"
               step="0.5"
-              className="epf-input"
+              className={`epf-input ${errors.years_employed ? 'error' : ''}`}
               placeholder="e.g. 5.5"
               value={data.years_employed}
               onChange={e => update('years_employed', e.target.value === '' ? '' : parseFloat(e.target.value))}
+              onBlur={() => validateField('years_employed', data.years_employed)}
             />
           </Field>
         </div>
@@ -413,7 +420,7 @@ function StepLocation({ data, update }) {
   );
 }
 
-function StepLoans({ data, update }) {
+function StepLoans({ data, update, errors, validateField }) {
   const hasLoans = data.has_federal_student_loans;
 
   return (
@@ -450,16 +457,17 @@ function StepLoans({ data, update }) {
             onChange={v => update('received_pell_grant', v)}
           />
 
-          <Field label="Years of Qualifying Loan Payments Made">
+          <Field label="Years of Qualifying Loan Payments Made" error={errors.years_of_loan_payments}>
             <input
               id="years_of_loan_payments"
               type="number"
               min="0"
               step="0.5"
-              className="epf-input"
+              className={`epf-input ${errors.years_of_loan_payments ? 'error' : ''}`}
               placeholder="e.g. 10"
               value={data.years_of_loan_payments}
               onChange={e => update('years_of_loan_payments', e.target.value === '' ? '' : parseFloat(e.target.value))}
+              onBlur={() => validateField('years_of_loan_payments', data.years_of_loan_payments)}
             />
           </Field>
         </div>
@@ -611,35 +619,45 @@ export default function EligibilityProfileForm() {
   }, []);
 
 
-  function validate() {
+  // ── Single-field blur validation, also used by cross-field triggers ──────
+  function validateField(field, value, overrideData) {
+    const d = overrideData || { ...data, [field]: value };
     const errs = {};
-    if (step === 0) {
-      if (data.annual_income !== '' && Number(data.annual_income) < 0) {
+
+    if (field === 'annual_income' || field === '*') {
+      if (d.annual_income !== '' && Number(d.annual_income) < 0)
         errs.annual_income = 'Income must be 0 or more.';
-      }
-      if (data.household_size !== '' && Number(data.household_size) < 1) {
+    }
+    if (field === 'household_size' || field === 'filing_status' || field === '*') {
+      const married = ['married_joint', 'married_separate'];
+      if (d.household_size !== '' && Number(d.household_size) < 1)
         errs.household_size = 'Household size must be at least 1.';
-      }
+      if (married.includes(d.filing_status) && d.household_size !== '' && Number(d.household_size) < 2)
+        errs.household_size = 'Married filing requires at least 2 people in the household.';
     }
-    if (step === 1) {
-      if (data.age !== '' && (Number(data.age) < 0 || Number(data.age) > 130)) {
+    if (field === 'age' || field === '*') {
+      if (d.age !== '' && (Number(d.age) < 0 || Number(d.age) > 130))
         errs.age = 'Age must be between 0 and 130.';
-      }
-      if (data.num_dependents !== '' && Number(data.num_dependents) < 0) {
-        errs.num_dependents = 'Number of dependents cannot be negative.';
-      }
     }
-    if (step === 2) {
-      if (data.years_employed !== '' && Number(data.years_employed) < 0) {
+    if (field === 'num_dependents' || field === '*') {
+      if (d.has_dependents && d.num_dependents !== '' && Number(d.num_dependents) < 1)
+        errs.num_dependents = 'Enter the number of dependents you claim (at least 1).';
+    }
+    if (field === 'years_employed' || field === '*') {
+      if (d.years_employed !== '' && Number(d.years_employed) < 0)
         errs.years_employed = 'Years employed cannot be negative.';
-      }
     }
-    if (step === 4) {
-      if (data.years_of_loan_payments !== '' && Number(data.years_of_loan_payments) < 0) {
+    if (field === 'years_of_loan_payments' || field === '*') {
+      if (d.years_of_loan_payments !== '' && Number(d.years_of_loan_payments) < 0)
         errs.years_of_loan_payments = 'Years of payments cannot be negative.';
-      }
     }
-    setErrors(errs);
+
+    setErrors(prev => ({ ...prev, ...errs }));
+    return errs;
+  }
+
+  function validate() {
+    const errs = validateField('*');
     return Object.keys(errs).length === 0;
   }
 
@@ -649,6 +667,7 @@ export default function EligibilityProfileForm() {
   }
 
   function handleBack() {
+    setErrors({});
     setStep(s => Math.max(s - 1, 0));
   }
 
@@ -749,11 +768,11 @@ export default function EligibilityProfileForm() {
         )}
 
         {/* Step content */}
-        {step === 0 && <StepFinancial data={data} update={update} errors={errors} />}
-        {step === 1 && <StepDemographics data={data} update={update} />}
-        {step === 2 && <StepEmployment data={data} update={update} />}
+        {step === 0 && <StepFinancial data={data} update={update} errors={errors} validateField={validateField} />}
+        {step === 1 && <StepDemographics data={data} update={update} errors={errors} validateField={validateField} />}
+        {step === 2 && <StepEmployment data={data} update={update} errors={errors} validateField={validateField} />}
         {step === 3 && <StepLocation data={data} update={update} />}
-        {step === 4 && <StepLoans data={data} update={update} />}
+        {step === 4 && <StepLoans data={data} update={update} errors={errors} validateField={validateField} />}
 
         {/* Navigation */}
         <div className="epf-nav">

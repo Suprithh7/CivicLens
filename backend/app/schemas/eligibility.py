@@ -2,7 +2,7 @@
 Pydantic schemas for user eligibility profile and eligibility check endpoints.
 """
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 from enum import Enum
@@ -227,7 +227,74 @@ class EligibilityProfileCreate(BaseModel):
         # Soft validation: allow it but note inconsistency; service layer handles
         return v
 
+    # ------------------------------------------------------------------
+    # Cross-field validation
+    # ------------------------------------------------------------------
+
+    @model_validator(mode="after")
+    def cross_field_rules(self) -> "EligibilityProfileCreate":
+        """
+        Enforce logical consistency across related fields.
+
+        Rules
+        -----
+        1. Married filing statuses imply ≥ 2 people in the household.
+        2. has_dependents=False → num_dependents is forced to None.
+        3. Non-employer employment statuses (unemployed / retired / student)
+           → employer_type and years_employed are cleared to avoid stale data
+           reaching the rules engine.
+        4. has_federal_student_loans=False → loan sub-fields are cleared.
+        """
+        from pydantic import ValidationError  # local import avoids circularity
+
+        errors: list[dict] = []
+
+        # Rule 1 — married status implies at least two people
+        married_statuses = {"married_joint", "married_separate"}
+        if (
+            self.filing_status is not None
+            and self.filing_status.value in married_statuses
+            and self.household_size is not None
+            and self.household_size < 2
+        ):
+            errors.append({
+                "type": "value_error",
+                "loc": ("household_size",),
+                "msg": (
+                    "Married filing statuses require a household size of at "
+                    "least 2."
+                ),
+                "input": self.household_size,
+                "ctx": {"error": "household_size must be ≥ 2 for married filing statuses"},
+            })
+
+        # Rule 2 — no dependents flag → clear dependent count
+        if not self.has_dependents:
+            self.num_dependents = None
+
+        # Rule 3 — non-employer status → clear employer fields
+        EMPLOYER_STATUSES = {"employed_full_time", "employed_part_time", "self_employed", "military"}
+        if (
+            self.employment_status is not None
+            and self.employment_status.value not in EMPLOYER_STATUSES
+        ):
+            self.employer_type = None
+            self.years_employed = None
+
+        # Rule 4 — no federal loans → clear loan sub-fields
+        if not self.has_federal_student_loans:
+            self.loan_in_default = None
+            self.years_of_loan_payments = None
+            self.received_pell_grant = None
+
+        if errors:
+            from pydantic_core import InitErrorDetails, PydanticCustomError
+            raise ValueError(errors[0]["msg"])
+
+        return self
+
     model_config = ConfigDict(
+
         json_schema_extra={
             "example": {
                 "session_id": "sess_f3a9b12c-7d4e-4f1a-8b2e-0c5d6e7f8a9b",
