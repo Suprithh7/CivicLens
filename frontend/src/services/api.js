@@ -33,6 +33,11 @@ async function fetchAPI(endpoint, options = {}) {
 
     return await response.json();
   } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      const connErr = new Error('Cannot reach the server. Please check your connection or try again later.');
+      console.error(`Network error (${endpoint}):`, error);
+      throw connErr;
+    }
     console.error(`API Error (${endpoint}):`, error);
     throw error;
   }

@@ -186,6 +186,13 @@ class TestNeedsMoreInfo:
         r = check_pslf(_profile(years_of_loan_payments=None))
         assert r.result == "needs_more_info"
 
+    def test_loan_default_unknown_with_federal_loans(self):
+        """has_federal_student_loans=True but loan_in_default=None → needs_more_info,
+        and the missing list must call out the default criterion."""
+        r = check_pslf(_profile(loan_in_default=None))
+        assert r.result == "needs_more_info"
+        assert any("default" in m.lower() for m in r.missing)
+
     def test_fully_blank_profile(self):
         """A profile with all PSLF fields unset → needs_more_info."""
         p = _profile(

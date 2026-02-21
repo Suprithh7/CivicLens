@@ -85,6 +85,9 @@ export async function askQuestionStreaming({
   if (model) requestBody.model = model;
   if (language) requestBody.language = language;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -92,6 +95,7 @@ export async function askQuestionStreaming({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -132,9 +136,17 @@ export async function askQuestionStreaming({
       }
     }
   } catch (error) {
+    if (error.name === 'AbortError') {
+      const timeoutErr = new Error('The request took too long. Please try again.');
+      console.warn('RAG stream timed out after 30s');
+      if (onError) onError(timeoutErr);
+      return;
+    }
     console.error('API Error (ask question streaming):', error);
     if (onError) onError(error);
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

@@ -203,6 +203,16 @@ class TestEligibilityProfileCreateInvalid:
         with pytest.raises(ValidationError):
             EligibilityProfileCreate(session_id="s1", state="CAL")
 
+    def test_negative_years_of_loan_payments_rejected(self):
+        """years_of_loan_payments < 0 must be rejected by schema (ge=0)."""
+        with pytest.raises(ValidationError):
+            EligibilityProfileCreate(session_id="s1", years_of_loan_payments=-0.5)
+
+    def test_negative_years_employed_rejected(self):
+        """years_employed < 0 must be rejected by schema (ge=0)."""
+        with pytest.raises(ValidationError):
+            EligibilityProfileCreate(session_id="s1", years_employed=-1.0)
+
 
 # ===========================================================================
 # Enum coverage

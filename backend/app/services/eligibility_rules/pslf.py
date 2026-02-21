@@ -153,6 +153,21 @@ PSLF_CRITERIA = [
 
 TOTAL_PSLF_CRITERIA = len(PSLF_CRITERIA)
 
+# Maps internal criterion labels → short, user-friendly field names for messages
+_LABEL_TO_FRIENDLY: dict[str, str] = {
+    "Holds qualifying federal student loans": "whether you have federal student loans",
+    "Federal loans are NOT in default": "whether your loans are in default",
+    "Employed full-time": "your employment status (full-time required)",
+    "Employer is a qualifying public-service entity (government / non-profit / military / education)": "your employer type (government, non-profit, military, or education)",
+    "Has made ≥ 10 years (120 months) of qualifying payments": "years of qualifying loan payments",
+    "U.S. citizen or lawful permanent resident": "your citizenship or residency status",
+}
+
+
+def _friendly_field_names(labels: list[str]) -> list[str]:
+    """Return concise, user-facing names for a list of criterion labels."""
+    return [_LABEL_TO_FRIENDLY.get(label, label) for label in labels]
+
 
 # ---------------------------------------------------------------------------
 # Confidence scoring
@@ -245,10 +260,10 @@ def check_pslf(profile: "UserEligibilityProfile") -> RuleResult:
     elif len(failed) == 0 and len(missing_fields) > 0:
         # No failures but some info is missing
         result = "needs_more_info"
-        missing_names = "; ".join(missing_fields)
+        missing_names = "; ".join(_friendly_field_names(missing_fields))
         explanation = (
-            f"We cannot make a definitive determination yet. "
-            f"Please provide the following missing information: {missing_names}."
+            f"We need a bit more information to make a determination. "
+            f"Please fill in: {missing_names}."
         )
 
     elif len(failed) > 0 and len(missing_fields) == 0:
@@ -294,15 +309,16 @@ def check_pslf(profile: "UserEligibilityProfile") -> RuleResult:
                 "Your profile has one or more disqualifying factors: "
                 + "; ".join(failed)
                 + ". Additional information is also needed: "
-                + "; ".join(missing_fields) + "."
+                + "; ".join(_friendly_field_names(missing_fields)) + "."
             )
         else:
             result = "needs_more_info"
+            friendly_missing = "; ".join(_friendly_field_names(missing_fields))
             explanation = (
                 "We need more information to make a determination. "
-                "Please provide: " + "; ".join(missing_fields) + ". "
+                "Please provide: " + friendly_missing + "."
                 + (
-                    f"Note: {'; '.join(failed)} currently does not meet PSLF requirements."
+                    f" Note: {'; '.join(failed)} currently does not meet PSLF requirements."
                     if failed else ""
                 )
             )

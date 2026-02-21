@@ -60,6 +60,32 @@ function ToggleRow({ id, label, hint, checked, onChange }) {
   );
 }
 
+/**
+ * Tri-state select: Yes / No / Unknown (blank)
+ * Maps to true / false / null for the backend.
+ */
+function TriStateSelect({ id, label, hint, value, onChange }) {
+  return (
+    <div className="epf-field">
+      <label className="epf-label" htmlFor={id}>
+        {label}
+        <span className="epf-optional">(optional)</span>
+      </label>
+      {hint && <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 6px' }}>{hint}</p>}
+      <select
+        id={id}
+        className="epf-select"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      >
+        <option value="">— Unknown / Prefer not to say —</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    </div>
+  );
+}
+
 function Field({ label, optional = true, error, children }) {
   return (
     <div className="epf-field">
@@ -322,19 +348,19 @@ function StepLocation({ data, update }) {
         </Field>
       </div>
 
-      <div className="epf-toggles">
-        <ToggleRow
+      <div className="epf-fields">
+        <TriStateSelect
           id="has_health_insurance"
           label="Has Health Insurance"
           hint="Do you currently have any health insurance coverage?"
-          checked={data.has_health_insurance}
+          value={data.has_health_insurance}
           onChange={v => update('has_health_insurance', v)}
         />
-        <ToggleRow
+        <TriStateSelect
           id="owns_home"
           label="Homeowner"
           hint="Do you own your primary residence?"
-          checked={data.owns_home}
+          value={data.owns_home}
           onChange={v => update('owns_home', v)}
         />
       </div>
@@ -353,23 +379,25 @@ function StepLoans({ data, update }) {
           checked={data.has_federal_student_loans}
           onChange={v => update('has_federal_student_loans', v)}
         />
-        <ToggleRow
-          id="loan_in_default"
-          label="Loans Currently in Default"
-          hint="Are any of your federal student loans in default status?"
-          checked={data.loan_in_default}
-          onChange={v => update('loan_in_default', v)}
-        />
-        <ToggleRow
-          id="received_pell_grant"
-          label="Ever Received a Pell Grant"
-          hint="Did you receive a Federal Pell Grant as an undergraduate student?"
-          checked={data.received_pell_grant}
-          onChange={v => update('received_pell_grant', v)}
-        />
       </div>
 
       <div className="epf-fields">
+        <TriStateSelect
+          id="loan_in_default"
+          label="Loans Currently in Default"
+          hint="Are any of your federal student loans in default status?"
+          value={data.loan_in_default}
+          onChange={v => update('loan_in_default', v)}
+        />
+
+        <TriStateSelect
+          id="received_pell_grant"
+          label="Ever Received a Pell Grant"
+          hint="Did you receive a Federal Pell Grant as an undergraduate student?"
+          value={data.received_pell_grant}
+          onChange={v => update('received_pell_grant', v)}
+        />
+
         <Field label="Years of Qualifying Loan Payments Made">
           <input
             id="years_of_loan_payments"
@@ -386,6 +414,7 @@ function StepLoans({ data, update }) {
     </div>
   );
 }
+
 
 // ─── section metadata ────────────────────────────────────────────────────────
 
@@ -445,18 +474,25 @@ const INITIAL_DATA = {
   // Location
   state: '',
   location_type: '',
-  has_health_insurance: false,
-  owns_home: false,
+  has_health_insurance: '',  // tri-state: '' | 'yes' | 'no'
+  owns_home: '',             // tri-state: '' | 'yes' | 'no'
   // Loans
   has_federal_student_loans: false,
-  loan_in_default: false,
-  received_pell_grant: false,
+  loan_in_default: '',       // tri-state: '' | 'yes' | 'no'
+  received_pell_grant: '',   // tri-state: '' | 'yes' | 'no'
   years_of_loan_payments: '',
 };
 
+/** Map tri-state string value to boolean or omit if unknown */
+function triStateToBool(val) {
+  if (val === 'yes') return true;
+  if (val === 'no') return false;
+  return undefined; // '' → omit from payload
+}
+
 function buildPayload(data, sessionId) {
   const payload = { session_id: sessionId };
-  // Only include non-empty optional fields
+  // Only include non-empty optional numeric fields
   const numFields = ['annual_income', 'household_size', 'age', 'num_dependents', 'years_employed', 'years_of_loan_payments'];
   const strFields = ['filing_status', 'citizenship_status', 'employment_status', 'employer_type', 'education_level', 'state', 'location_type'];
   for (const f of numFields) {
@@ -467,16 +503,18 @@ function buildPayload(data, sessionId) {
   for (const f of strFields) {
     if (data[f]) payload[f] = data[f];
   }
-  // Booleans – always include (they have safe defaults)
+  // Standard booleans — always include (safe defaults)
   payload.is_veteran = data.is_veteran;
   payload.is_disabled = data.is_disabled;
   payload.has_dependents = data.has_dependents;
   payload.is_student = data.is_student;
   payload.has_federal_student_loans = data.has_federal_student_loans;
-  payload.loan_in_default = data.loan_in_default;
-  payload.received_pell_grant = data.received_pell_grant;
-  payload.has_health_insurance = data.has_health_insurance;
-  payload.owns_home = data.owns_home;
+  // Tri-state fields — only include if user made a choice
+  const triFields = ['loan_in_default', 'received_pell_grant', 'has_health_insurance', 'owns_home'];
+  for (const f of triFields) {
+    const mapped = triStateToBool(data[f]);
+    if (mapped !== undefined) payload[f] = mapped;
+  }
   return payload;
 }
 
@@ -496,8 +534,29 @@ export default function EligibilityProfileForm() {
   function validate() {
     const errs = {};
     if (step === 0) {
-      if (data.annual_income !== '' && data.annual_income < 0) {
+      if (data.annual_income !== '' && Number(data.annual_income) < 0) {
         errs.annual_income = 'Income must be 0 or more.';
+      }
+      if (data.household_size !== '' && Number(data.household_size) < 1) {
+        errs.household_size = 'Household size must be at least 1.';
+      }
+    }
+    if (step === 1) {
+      if (data.age !== '' && (Number(data.age) < 0 || Number(data.age) > 130)) {
+        errs.age = 'Age must be between 0 and 130.';
+      }
+      if (data.num_dependents !== '' && Number(data.num_dependents) < 0) {
+        errs.num_dependents = 'Number of dependents cannot be negative.';
+      }
+    }
+    if (step === 2) {
+      if (data.years_employed !== '' && Number(data.years_employed) < 0) {
+        errs.years_employed = 'Years employed cannot be negative.';
+      }
+    }
+    if (step === 4) {
+      if (data.years_of_loan_payments !== '' && Number(data.years_of_loan_payments) < 0) {
+        errs.years_of_loan_payments = 'Years of payments cannot be negative.';
       }
     }
     setErrors(errs);
