@@ -482,3 +482,44 @@
     display: none;
   }
 }
+
+/* === Progressive disclosure reveal === */
+
+/*
+ * .epf-reveal wraps a block that should be shown/hidden based on user input.
+ * Toggling the `open` class animates the block in or out via max-height.
+ * The large max value gives plenty of room without causing a slow animation
+ * on short content because CSS eases-out while approaching the max.
+ */
+.epf-reveal {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.24s ease,
+    margin-top 0.24s ease;
+  margin-top: 0;
+}
+
+.epf-reveal.open {
+  max-height: 600px;
+  /* large enough for any content block */
+  opacity: 1;
+  margin-top: 20px;
+  /* match gap between sibling .epf-fields sections */
+}
+
+/* Context banner shown inside a disclosed block */
+.epf-disclosure-hint {
+  font-size: 0.78rem;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

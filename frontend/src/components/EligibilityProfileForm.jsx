@@ -99,6 +99,28 @@ function Field({ label, optional = true, error, children }) {
   );
 }
 
+/**
+ * Reveal — animated show/hide wrapper for progressive disclosure.
+ * Children slide in with opacity + max-height when `open` is true,
+ * and slide back out when false. Stale child state is cleared by the
+ * parent before hiding (see update() in EligibilityProfileForm).
+ */
+function Reveal({ open, hint, children }) {
+  return (
+    <div className={`epf-reveal${open ? ' open' : ''}`}>
+      {hint && (
+        <p className="epf-disclosure-hint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          {hint}
+        </p>
+      )}
+      {children}
+    </div>
+  );
+}
+
 // ─── step panels ─────────────────────────────────────────────────────────────
 
 function StepFinancial({ data, update, errors }) {
@@ -193,18 +215,6 @@ function StepDemographics({ data, update }) {
             <option value="undocumented">Undocumented</option>
           </select>
         </Field>
-
-        <Field label="Number of Dependents" error={null}>
-          <input
-            id="num_dependents"
-            type="number"
-            min="0"
-            className="epf-input"
-            placeholder="e.g. 2"
-            value={data.num_dependents}
-            onChange={e => update('num_dependents', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-          />
-        </Field>
       </div>
 
       <div className="epf-toggles">
@@ -230,11 +240,38 @@ function StepDemographics({ data, update }) {
           onChange={v => update('has_dependents', v)}
         />
       </div>
+
+      {/* ── Progressive disclosure: num_dependents ── */}
+      <Reveal
+        open={data.has_dependents}
+        hint="How many dependents do you claim?"
+      >
+        <div className="epf-fields">
+          <Field label="Number of Dependents" error={null}>
+            <input
+              id="num_dependents"
+              type="number"
+              min="0"
+              className="epf-input"
+              placeholder="e.g. 2"
+              value={data.num_dependents}
+              onChange={e => update('num_dependents', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+            />
+          </Field>
+        </div>
+      </Reveal>
     </div>
   );
 }
 
+// Employment statuses that have an employer (disclose employer type + tenure)
+const HAS_EMPLOYER = new Set([
+  'employed_full_time', 'employed_part_time', 'self_employed', 'military',
+]);
+
 function StepEmployment({ data, update }) {
+  const hasEmployer = HAS_EMPLOYER.has(data.employment_status);
+
   return (
     <div>
       <div className="epf-fields" style={{ marginBottom: 24 }}>
@@ -255,35 +292,6 @@ function StepEmployment({ data, update }) {
           </select>
         </Field>
 
-        <Field label="Employer Type">
-          <select
-            id="employer_type"
-            className="epf-select"
-            value={data.employer_type}
-            onChange={e => update('employer_type', e.target.value)}
-          >
-            <option value="">— Select —</option>
-            <option value="government">Government</option>
-            <option value="nonprofit">Non-Profit</option>
-            <option value="private">Private Sector</option>
-            <option value="military">Military</option>
-            <option value="education">Education</option>
-          </select>
-        </Field>
-
-        <Field label="Years with Current Employer">
-          <input
-            id="years_employed"
-            type="number"
-            min="0"
-            step="0.5"
-            className="epf-input"
-            placeholder="e.g. 5.5"
-            value={data.years_employed}
-            onChange={e => update('years_employed', e.target.value === '' ? '' : parseFloat(e.target.value))}
-          />
-        </Field>
-
         <Field label="Highest Education Level">
           <select
             id="education_level"
@@ -302,7 +310,44 @@ function StepEmployment({ data, update }) {
         </Field>
       </div>
 
-      <div className="epf-toggles">
+      {/* ── Progressive disclosure: employer fields ── */}
+      <Reveal
+        open={hasEmployer}
+        hint="Tell us about your employer — this matters for public-service programs."
+      >
+        <div className="epf-fields">
+          <Field label="Employer Type">
+            <select
+              id="employer_type"
+              className="epf-select"
+              value={data.employer_type}
+              onChange={e => update('employer_type', e.target.value)}
+            >
+              <option value="">— Select —</option>
+              <option value="government">Government</option>
+              <option value="nonprofit">Non-Profit</option>
+              <option value="private">Private Sector</option>
+              <option value="military">Military</option>
+              <option value="education">Education</option>
+            </select>
+          </Field>
+
+          <Field label="Years with Current Employer">
+            <input
+              id="years_employed"
+              type="number"
+              min="0"
+              step="0.5"
+              className="epf-input"
+              placeholder="e.g. 5.5"
+              value={data.years_employed}
+              onChange={e => update('years_employed', e.target.value === '' ? '' : parseFloat(e.target.value))}
+            />
+          </Field>
+        </div>
+      </Reveal>
+
+      <div className="epf-toggles" style={{ marginTop: 20 }}>
         <ToggleRow
           id="is_student"
           label="Currently Enrolled as Full-Time Student"
@@ -369,9 +414,11 @@ function StepLocation({ data, update }) {
 }
 
 function StepLoans({ data, update }) {
+  const hasLoans = data.has_federal_student_loans;
+
   return (
     <div>
-      <div className="epf-toggles" style={{ marginBottom: 24 }}>
+      <div className="epf-toggles" style={{ marginBottom: 4 }}>
         <ToggleRow
           id="has_federal_student_loans"
           label="Has Federal Student Loans"
@@ -381,36 +428,42 @@ function StepLoans({ data, update }) {
         />
       </div>
 
-      <div className="epf-fields">
-        <TriStateSelect
-          id="loan_in_default"
-          label="Loans Currently in Default"
-          hint="Are any of your federal student loans in default status?"
-          value={data.loan_in_default}
-          onChange={v => update('loan_in_default', v)}
-        />
-
-        <TriStateSelect
-          id="received_pell_grant"
-          label="Ever Received a Pell Grant"
-          hint="Did you receive a Federal Pell Grant as an undergraduate student?"
-          value={data.received_pell_grant}
-          onChange={v => update('received_pell_grant', v)}
-        />
-
-        <Field label="Years of Qualifying Loan Payments Made">
-          <input
-            id="years_of_loan_payments"
-            type="number"
-            min="0"
-            step="0.5"
-            className="epf-input"
-            placeholder="e.g. 10"
-            value={data.years_of_loan_payments}
-            onChange={e => update('years_of_loan_payments', e.target.value === '' ? '' : parseFloat(e.target.value))}
+      {/* ── Progressive disclosure: loan detail fields ── */}
+      <Reveal
+        open={hasLoans}
+        hint="Great — a few more details will help us check forgiveness &amp; repayment eligibility."
+      >
+        <div className="epf-fields">
+          <TriStateSelect
+            id="loan_in_default"
+            label="Loans Currently in Default"
+            hint="Are any of your federal student loans in default status?"
+            value={data.loan_in_default}
+            onChange={v => update('loan_in_default', v)}
           />
-        </Field>
-      </div>
+
+          <TriStateSelect
+            id="received_pell_grant"
+            label="Ever Received a Pell Grant"
+            hint="Did you receive a Federal Pell Grant as an undergraduate student?"
+            value={data.received_pell_grant}
+            onChange={v => update('received_pell_grant', v)}
+          />
+
+          <Field label="Years of Qualifying Loan Payments Made">
+            <input
+              id="years_of_loan_payments"
+              type="number"
+              min="0"
+              step="0.5"
+              className="epf-input"
+              placeholder="e.g. 10"
+              value={data.years_of_loan_payments}
+              onChange={e => update('years_of_loan_payments', e.target.value === '' ? '' : parseFloat(e.target.value))}
+            />
+          </Field>
+        </div>
+      </Reveal>
     </div>
   );
 }
@@ -526,10 +579,37 @@ export default function EligibilityProfileForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null); // {ok, message}
 
+  // Child fields to clear when their disclosure gate is toggled off
+  const CHILD_FIELDS = {
+    has_dependents: { num_dependents: '' },
+    has_federal_student_loans: { loan_in_default: '', received_pell_grant: '', years_of_loan_payments: '' },
+  };
+
+  // Disclosure gates keyed on employment_status change
+  const EMPLOYER_FIELDS = ['employer_type', 'years_employed'];
+  const HAS_EMPLOYER_SET = new Set([
+    'employed_full_time', 'employed_part_time', 'self_employed', 'military',
+  ]);
+
   const update = useCallback((field, value) => {
-    setData(prev => ({ ...prev, [field]: value }));
+    setData(prev => {
+      const next = { ...prev, [field]: value };
+
+      // Clear dependent child fields when gate is toggled off
+      if (field in CHILD_FIELDS && !value) {
+        Object.assign(next, CHILD_FIELDS[field]);
+      }
+
+      // Clear employer sub-fields when switching to a non-employer status
+      if (field === 'employment_status' && !HAS_EMPLOYER_SET.has(value)) {
+        for (const f of EMPLOYER_FIELDS) next[f] = '';
+      }
+
+      return next;
+    });
     setErrors(prev => ({ ...prev, [field]: undefined }));
   }, []);
+
 
   function validate() {
     const errs = {};
