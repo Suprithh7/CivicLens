@@ -79,6 +79,7 @@ class EligibilityProfileCreate(BaseModel):
     """
     session_id: str = Field(
         ...,
+        min_length=1,
         max_length=100,
         description="Anonymous session identifier (e.g. UUID from localStorage)",
         examples=["sess_f3a9b12c-7d4e-4f1a-8b2e-0c5d6e7f8a9b"]
@@ -145,6 +146,7 @@ class EligibilityProfileCreate(BaseModel):
     years_employed: Optional[float] = Field(
         None,
         ge=0,
+        le=70,
         description="Years of continuous employment with current employer",
         examples=[5.5]
     )
@@ -184,6 +186,7 @@ class EligibilityProfileCreate(BaseModel):
     years_of_loan_payments: Optional[float] = Field(
         None,
         ge=0,
+        le=50,
         description="Number of years of qualifying loan payments made",
         examples=[10.0]
     )
@@ -212,6 +215,15 @@ class EligibilityProfileCreate(BaseModel):
         examples=[{"monthly_rent": 1500, "first_time_homebuyer": True}]
     )
 
+    @field_validator("session_id")
+    @classmethod
+    def session_id_must_not_be_blank(cls, v: str) -> str:
+        """Reject blank or whitespace-only session IDs."""
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("session_id must not be blank or whitespace-only")
+        return stripped
+
     @field_validator("state")
     @classmethod
     def state_must_be_uppercase(cls, v: Optional[str]) -> Optional[str]:
@@ -220,11 +232,12 @@ class EligibilityProfileCreate(BaseModel):
 
     @field_validator("num_dependents")
     @classmethod
-    def dependents_count_requires_flag(
+    def dependents_count_non_negative(
         cls, v: Optional[int], info: Any
     ) -> Optional[int]:
-        """Warn if num_dependents is set but has_dependents is False."""
-        # Soft validation: allow it but note inconsistency; service layer handles
+        """Reject explicitly zero dependents (use has_dependents=False instead)."""
+        if v is not None and v < 0:
+            raise ValueError("num_dependents cannot be negative")
         return v
 
     # ------------------------------------------------------------------
@@ -271,6 +284,14 @@ class EligibilityProfileCreate(BaseModel):
         # Rule 2 — no dependents flag → clear dependent count
         if not self.has_dependents:
             self.num_dependents = None
+        elif self.num_dependents is not None and self.num_dependents < 1:
+            errors.append({
+                "type": "value_error",
+                "loc": ("num_dependents",),
+                "msg": "num_dependents must be at least 1 when has_dependents is True.",
+                "input": self.num_dependents,
+                "ctx": {"error": "num_dependents must be ≥ 1 when has_dependents=True"},
+            })
 
         # Rule 3 — non-employer status → clear employer fields
         EMPLOYER_STATUSES = {"employed_full_time", "employed_part_time", "self_employed", "military"}
@@ -288,7 +309,6 @@ class EligibilityProfileCreate(BaseModel):
             self.received_pell_grant = None
 
         if errors:
-            from pydantic_core import InitErrorDetails, PydanticCustomError
             raise ValueError(errors[0]["msg"])
 
         return self

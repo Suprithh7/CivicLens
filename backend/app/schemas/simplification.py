@@ -2,8 +2,8 @@
 Pydantic schemas for policy simplification endpoints.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Optional, List, Any
 from datetime import datetime
 from enum import Enum
 
@@ -104,6 +104,27 @@ class SimplificationRequest(BaseModel):
                 }
             ]
         }
+
+    @field_validator("policy_id")
+    @classmethod
+    def policy_id_must_not_be_blank(cls, v: str) -> str:
+        """Reject blank or whitespace-only policy IDs."""
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("policy_id must not be blank or whitespace-only")
+        return stripped
+
+    @model_validator(mode="after")
+    def eligibility_type_requires_user_situation(self) -> "SimplificationRequest":
+        """Require user_situation when explanation_type is 'eligibility'."""
+        if (
+            self.explanation_type == ExplanationType.ELIGIBILITY
+            and not (self.user_situation and self.user_situation.strip())
+        ):
+            raise ValueError(
+                "user_situation is required when explanation_type is 'eligibility'"
+            )
+        return self
 
 
 class SimplificationResponse(BaseModel):

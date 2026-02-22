@@ -213,6 +213,38 @@ class TestEligibilityProfileCreateInvalid:
         with pytest.raises(ValidationError):
             EligibilityProfileCreate(session_id="s1", years_employed=-1.0)
 
+    def test_blank_session_id_rejected(self):
+        """An empty string session_id must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            EligibilityProfileCreate(session_id="")
+        assert "session_id" in str(exc_info.value)
+
+    def test_whitespace_only_session_id_rejected(self):
+        """A whitespace-only session_id must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            EligibilityProfileCreate(session_id="   ")
+        assert "session_id" in str(exc_info.value)
+
+    def test_years_employed_exceeds_max_rejected(self):
+        """years_employed > 70 must be rejected by schema (le=70)."""
+        with pytest.raises(ValidationError):
+            EligibilityProfileCreate(session_id="s1", years_employed=71.0)
+
+    def test_years_of_loan_payments_exceeds_max_rejected(self):
+        """years_of_loan_payments > 50 must be rejected by schema (le=50)."""
+        with pytest.raises(ValidationError):
+            EligibilityProfileCreate(session_id="s1", years_of_loan_payments=51.0)
+
+    def test_dependents_flag_true_count_zero_rejected(self):
+        """has_dependents=True with num_dependents=0 must fail cross-field validation."""
+        with pytest.raises(ValidationError) as exc_info:
+            EligibilityProfileCreate(
+                session_id="s1",
+                has_dependents=True,
+                num_dependents=0,
+            )
+        assert "num_dependents" in str(exc_info.value)
+
 
 # ===========================================================================
 # Enum coverage

@@ -640,16 +640,22 @@ export default function EligibilityProfileForm() {
         errs.age = 'Age must be between 0 and 130.';
     }
     if (field === 'num_dependents' || field === '*') {
-      if (d.has_dependents && d.num_dependents !== '' && Number(d.num_dependents) < 1)
+      if (d.has_dependents && (d.num_dependents === '' || d.num_dependents === null || d.num_dependents === undefined))
+        errs.num_dependents = 'Please enter how many dependents you claim.';
+      else if (d.has_dependents && d.num_dependents !== '' && Number(d.num_dependents) < 1)
         errs.num_dependents = 'Enter the number of dependents you claim (at least 1).';
     }
     if (field === 'years_employed' || field === '*') {
       if (d.years_employed !== '' && Number(d.years_employed) < 0)
         errs.years_employed = 'Years employed cannot be negative.';
+      if (d.years_employed !== '' && Number(d.years_employed) > 70)
+        errs.years_employed = 'Years employed seems too high (max 70).';
     }
     if (field === 'years_of_loan_payments' || field === '*') {
       if (d.years_of_loan_payments !== '' && Number(d.years_of_loan_payments) < 0)
         errs.years_of_loan_payments = 'Years of payments cannot be negative.';
+      if (d.years_of_loan_payments !== '' && Number(d.years_of_loan_payments) > 50)
+        errs.years_of_loan_payments = 'Years of payments seems too high (max 50).';
     }
 
     setErrors(prev => ({ ...prev, ...errs }));

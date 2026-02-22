@@ -2,7 +2,7 @@
 Pydantic schemas for RAG (Retrieval-Augmented Generation) endpoints.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from datetime import datetime
 
@@ -50,6 +50,15 @@ class RAGQueryRequest(BaseModel):
         examples=["en", "es", "fr", "hi", "zh-cn"]
     )
     
+    @field_validator("query")
+    @classmethod
+    def query_must_not_be_whitespace_only(cls, v: str) -> str:
+        """Strip and reject queries that are blank after stripping."""
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("query must not be blank or whitespace-only")
+        return stripped
+
     class Config:
         json_schema_extra = {
             "example": {
