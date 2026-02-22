@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from app.services.eligibility_rules.heuristics import apply_heuristics
+
 if TYPE_CHECKING:
     from app.models.eligibility import UserEligibilityProfile
 
@@ -51,6 +53,7 @@ class RuleResult:
     failed: list[str] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
     explanation: str = ""
+    heuristics_applied: list[str] = field(default_factory=list)  # audit trail
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +224,11 @@ def check_pslf(profile: "UserEligibilityProfile") -> RuleResult:
     """
     Run all PSLF criteria against *profile* and return a RuleResult.
 
+    A heuristic pre-pass first enriches any ``None`` fields that can be
+    strongly implied from adjacent profile data (e.g. veteran → citizen).
+    The original *profile* is never mutated; all inference is recorded in
+    ``RuleResult.heuristics_applied`` for transparency.
+
     Decision logic:
     - If any **required** criterion is unknown (missing data): needs_more_info
       (unless other hard failures are already clear)
@@ -229,19 +237,37 @@ def check_pslf(profile: "UserEligibilityProfile") -> RuleResult:
       UNLESS only 1-2 optional criteria fail and the core loan/employment
       criteria pass → partial (applicant should explore more)
     """
+    # ── Heuristic pre-pass ──────────────────────────────────────────
+    inferred = apply_heuristics(profile)
+
+    # Track which criterion labels were resolved via heuristic (not explicit)
+    inferred_fields: set[str] = set()
+    if inferred.citizenship_status != getattr(profile, "citizenship_status", None):
+        inferred_fields.add("U.S. citizen or lawful permanent resident")
+    if inferred.employer_type != getattr(profile, "employer_type", None):
+        inferred_fields.add(
+            "Employer is a qualifying public-service entity "
+            "(government / non-profit / military / education)"
+        )
+    if inferred.employment_status != getattr(profile, "employment_status", None):
+        inferred_fields.add("Employed full-time")
+    if inferred.loan_in_default != getattr(profile, "loan_in_default", None):
+        inferred_fields.add("Federal loans are NOT in default")
+
     matched: list[str] = []
     failed: list[str] = []
     missing_fields: list[str] = []
 
-    # Evaluate every criterion
+    # Evaluate every criterion against the *inferred* (enriched) profile
     for checker in PSLF_CRITERIA:
-        passed, label = checker(profile)
+        passed, label = checker(inferred)
         if passed is None:
             missing_fields.append(label)
         elif passed:
-            matched.append(label)
+            display = f"{label} [inferred]" if label in inferred_fields else label
+            matched.append(display)
         else:
-            failed.append(label)
+            matched.append(label) if False else failed.append(label)
 
     # ── Determine overall result ──────────────────────────────────────────
 
@@ -332,4 +358,5 @@ def check_pslf(profile: "UserEligibilityProfile") -> RuleResult:
         failed=failed,
         missing=missing_fields,
         explanation=explanation.strip(),
+        heuristics_applied=inferred.heuristics_applied,
     )

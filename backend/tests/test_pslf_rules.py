@@ -186,12 +186,24 @@ class TestNeedsMoreInfo:
         r = check_pslf(_profile(years_of_loan_payments=None))
         assert r.result == "needs_more_info"
 
-    def test_loan_default_unknown_with_federal_loans(self):
-        """has_federal_student_loans=True but loan_in_default=None → needs_more_info,
-        and the missing list must call out the default criterion."""
-        r = check_pslf(_profile(loan_in_default=None))
+    def test_loan_default_unknown_with_federal_loans_no_payments(self):
+        """
+        has_federal_student_loans=True, loan_in_default=None, AND no payment
+        history → cannot infer default status → needs_more_info.
+        The missing list must call out the default criterion.
+        """
+        r = check_pslf(_profile(loan_in_default=None, years_of_loan_payments=None))
         assert r.result == "needs_more_info"
         assert any("default" in m.lower() for m in r.missing)
+
+    def test_loan_default_inferred_from_payment_history(self):
+        """
+        has_federal_student_loans=True, loan_in_default=None, but 10 years of
+        qualifying payments → heuristic infers not-in-default → eligible.
+        """
+        r = check_pslf(_profile(loan_in_default=None, years_of_loan_payments=10.0))
+        assert r.result == "eligible"
+        assert any("default" in h.lower() for h in r.heuristics_applied)
 
     def test_fully_blank_profile(self):
         """A profile with all PSLF fields unset → needs_more_info."""
@@ -295,6 +307,90 @@ class TestResultFields:
 # ---------------------------------------------------------------------------
 # Engine dispatcher
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Heuristic inference
+# ---------------------------------------------------------------------------
+
+class TestHeuristics:
+    """
+    Verify that the heuristic pre-pass correctly infers implied fields from
+    adjacent profile data without mutating the original profile.
+    """
+
+    def test_veteran_implies_citizen(self):
+        """A veteran with unknown citizenship should resolve to eligible."""
+        p = _profile(is_veteran=True, citizenship_status=None)
+        r = check_pslf(p)
+        assert r.result == "eligible", r.explanation
+        assert any("citizen" in h.lower() for h in r.heuristics_applied)
+
+    def test_veteran_implies_government_employer(self):
+        """A veteran with no employer_type should have it inferred as government."""
+        p = _profile(is_veteran=True, employer_type=None)
+        r = check_pslf(p)
+        assert r.result == "eligible", r.explanation
+        assert any("employer" in h.lower() for h in r.heuristics_applied)
+
+    def test_employer_type_implies_full_time(self):
+        """A veteran with employer_type set but no employment_status → full-time inferred."""
+        p = _profile(is_veteran=True, employer_type="government", employment_status=None)
+        r = check_pslf(p)
+        assert r.result == "eligible", r.explanation
+        assert any("employment" in h.lower() for h in r.heuristics_applied)
+
+    def test_payment_history_implies_not_in_default(self):
+        """10 years of payments with unknown loan_in_default should infer False."""
+        p = _profile(years_of_loan_payments=10.0, loan_in_default=None)
+        r = check_pslf(p)
+        assert r.result == "eligible", r.explanation
+        assert any("default" in h.lower() for h in r.heuristics_applied)
+
+    def test_heuristic_does_not_override_explicit_disqualifying_value(self):
+        """Explicit loan_in_default=True must not be overridden even with payments."""
+        p = _profile(years_of_loan_payments=10.0, loan_in_default=True)
+        r = check_pslf(p)
+        assert r.result == "not_eligible"
+        assert not any("default" in h.lower() for h in r.heuristics_applied)
+
+    def test_heuristic_does_not_override_explicit_non_citizen(self):
+        """Explicit visa_holder must not be overridden even if is_veteran=True."""
+        p = _profile(is_veteran=True, citizenship_status="visa_holder")
+        r = check_pslf(p)
+        assert r.result == "not_eligible"
+        assert not any("citizen" in h.lower() for h in r.heuristics_applied)
+
+    def test_veteran_chain_resolves_fully(self):
+        """
+        A veteran who only provides loan counts should have citizenship,
+        employer and employment inferred → eligible.
+        """
+        p = _profile(
+            is_veteran=True,
+            citizenship_status=None,
+            employer_type=None,
+            employment_status=None,
+            years_of_loan_payments=10.0,
+            loan_in_default=None,
+        )
+        r = check_pslf(p)
+        assert r.result == "eligible", r.explanation
+        # At least 3 heuristics should have fired
+        assert len(r.heuristics_applied) >= 3
+
+    def test_heuristics_applied_is_empty_when_no_inference_needed(self):
+        """A fully-populated qualifying profile needs no heuristics."""
+        p = _profile()
+        r = check_pslf(p)
+        assert r.result == "eligible"
+        assert r.heuristics_applied == []
+
+    def test_inferred_criteria_labelled_in_matched(self):
+        """Criteria resolved via heuristic should have '[inferred]' in their label."""
+        p = _profile(is_veteran=True, citizenship_status=None)
+        r = check_pslf(p)
+        assert any("[inferred]" in m for m in r.matched)
+
 
 class TestEngine:
     def test_pslf_slug_dispatches_correctly(self):
