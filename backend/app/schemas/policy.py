@@ -55,7 +55,7 @@ class PolicyCreate(PolicyBase):
 
 
 class PolicyUpdate(BaseModel):
-    """Schema for updating policy metadata."""
+    """Schema for updating policy metadata (legacy)."""
     title: Optional[str] = Field(None, max_length=500)
     description: Optional[str] = None
     language: Optional[str] = Field(None, max_length=10)
@@ -65,6 +65,21 @@ class PolicyUpdate(BaseModel):
     expiry_date: Optional[datetime] = None
     source_url: Optional[str] = Field(None, max_length=500)
     status: Optional[PolicyStatusEnum] = None
+
+
+class PolicyUpdateRequest(BaseModel):
+    """Schema for a targeted metadata update (PATCH)."""
+    title: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = None
+    language: Optional[str] = Field(None, max_length=10)
+    jurisdiction: Optional[str] = Field(None, max_length=100)
+    policy_type: Optional[PolicyTypeEnum] = None
+    effective_date: Optional[datetime] = None
+    expiry_date: Optional[datetime] = None
+    source_url: Optional[str] = Field(None, max_length=500)
+    status: Optional[PolicyStatusEnum] = None
+    change_reason: Optional[str] = Field(None, description="Reason for this metadata change")
+    changed_by: Optional[str] = Field(None, description="Identifier of the user/system making the change")
 
 
 class PolicyInDB(PolicyBase):
@@ -92,11 +107,39 @@ class PolicyPublic(PolicyBase):
     filename: str
     file_size: int
     content_type: str
+    version: int
     status: PolicyStatusEnum
     created_at: datetime
     updated_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
+
+
+class PolicyVersionPublic(BaseModel):
+    """Public representation of a policy version snapshot."""
+    id: int
+    version_number: int
+    title: Optional[str]
+    description: Optional[str]
+    language: Optional[str]
+    jurisdiction: Optional[str]
+    policy_type: Optional[PolicyTypeEnum]
+    effective_date: Optional[datetime]
+    expiry_date: Optional[datetime]
+    source_url: Optional[str]
+    status: Optional[PolicyStatusEnum]
+    changed_by: Optional[str]
+    change_reason: Optional[str]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PolicyVersionListResponse(BaseModel):
+    """Response for policy version history list."""
+    policy_id: str
+    versions: List[PolicyVersionPublic]
+    total: int
 
 
 class PolicyUploadResponse(BaseModel):

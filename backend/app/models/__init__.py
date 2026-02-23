@@ -11,6 +11,8 @@ from app.models.policy import (
     PolicyType,
     ProcessingStage,
     ProcessingStatus,
+    PolicyVersion,
+    PolicyChunk,
 )
 from app.models.eligibility import (
     UserEligibilityProfile,
@@ -34,6 +36,8 @@ __all__ = [
     "PolicyType",
     "ProcessingStage",
     "ProcessingStatus",
+    "PolicyVersion",
+    "PolicyChunk",
     # Eligibility models
     "UserEligibilityProfile",
     "EligibilityCheck",

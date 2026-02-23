@@ -112,6 +112,12 @@ class Policy(Base):
         cascade="all, delete-orphan",
         order_by="PolicyChunk.chunk_index"
     )
+    versions = relationship(
+        "PolicyVersion",
+        back_populates="policy",
+        cascade="all, delete-orphan",
+        order_by="PolicyVersion.version_number"
+    )
     
     # Indexes
     __table_args__ = (
@@ -265,3 +271,48 @@ class PolicyChunk(Base):
     
     def __repr__(self) -> str:
         return f"<PolicyChunk(id={self.id}, policy_id={self.policy_id}, chunk_index={self.chunk_index}, size={self.chunk_size})>"
+
+
+class PolicyVersion(Base):
+    """
+    Immutable snapshot of a policy's metadata at a particular version.
+    Created each time policy metadata is updated via PATCH.
+    Version 1 is captured the first time an update is made (snapshotting the original state).
+    """
+    __tablename__ = "policy_versions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    policy_id = Column(Integer, ForeignKey("policies.id", ondelete="CASCADE"), nullable=False)
+
+    # Which version number this snapshot corresponds to (the version *before* the change)
+    version_number = Column(Integer, nullable=False)
+
+    # Snapshot of mutable metadata fields
+    title = Column(String(500), nullable=True)
+    description = Column(Text, nullable=True)
+    language = Column(String(10), nullable=True)
+    jurisdiction = Column(String(100), nullable=True)
+    policy_type = Column(SQLEnum(PolicyType), nullable=True)
+    effective_date = Column(DateTime, nullable=True)
+    expiry_date = Column(DateTime, nullable=True)
+    source_url = Column(String(500), nullable=True)
+    status = Column(SQLEnum(PolicyStatus), nullable=True)
+
+    # Who made the change and why (optional, for future auth integration)
+    changed_by = Column(String(255), nullable=True)
+    change_reason = Column(Text, nullable=True)
+
+    # When this snapshot was created
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationship back to the live policy
+    policy = relationship("Policy", back_populates="versions")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_policy_version_policy_id", "policy_id"),
+        Index("idx_policy_version_number", "policy_id", "version_number", unique=True),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PolicyVersion(id={self.id}, policy_id={self.policy_id}, version_number={self.version_number})>"

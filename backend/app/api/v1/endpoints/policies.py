@@ -16,6 +16,9 @@ from app.schemas.policy import (
     PolicyListResponse,
     PolicyStatusEnum,
     PolicyTypeEnum,
+    PolicyUpdateRequest,
+    PolicyVersionPublic,
+    PolicyVersionListResponse,
     TextExtractionResponse,
     ExtractedTextResponse
 )
@@ -42,6 +45,13 @@ from app.services.text_extraction import (
     process_policy_text_extraction,
     get_extracted_text,
     TextExtractionError
+)
+from app.services.policy_version_service import (
+    update_policy_metadata,
+    list_policy_versions,
+    get_policy_version,
+    restore_policy_version,
+    PolicyVersionError
 )
 
 logger = logging.getLogger(__name__)
@@ -426,5 +436,108 @@ async def get_policy_text(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve extracted text: {str(e)}"
+        )
+
+
+@router.patch(
+    "/{policy_id}",
+    response_model=PolicyPublic,
+    summary="Update Policy Metadata",
+    description="Update policy metadata (title, description, dates, etc.). Automatically creates a version snapshot."
+)
+async def patch_policy_metadata(
+    policy_id: str,
+    update_data: PolicyUpdateRequest,
+    db: AsyncSession = Depends(get_db)
+) -> PolicyPublic:
+    """Update policy metadata and bump version."""
+    try:
+        updated_policy = await update_policy_metadata(policy_id, update_data, db)
+        return PolicyPublic.model_validate(updated_policy)
+    except PolicyVersionError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error(f"Error updating policy metadata: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update policy: {str(e)}"
+        )
+
+
+@router.get(
+    "/{policy_id}/versions",
+    response_model=PolicyVersionListResponse,
+    summary="List Policy Versions",
+    description="Get the full metadata history for a policy document."
+)
+async def get_versions(
+    policy_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> PolicyVersionListResponse:
+    """List all snapshots for a policy."""
+    try:
+        versions = await list_policy_versions(policy_id, db)
+        return PolicyVersionListResponse(
+            policy_id=policy_id,
+            versions=[PolicyVersionPublic.model_validate(v) for v in versions],
+            total=len(versions)
+        )
+    except PolicyVersionError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error(f"Error listing policy versions: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list versions: {str(e)}"
+        )
+
+
+@router.get(
+    "/{policy_id}/versions/{version_number}",
+    response_model=PolicyVersionPublic,
+    summary="Get Specific Policy Version",
+    description="Retrieve a historical metadata snapshot for a policy."
+)
+async def get_version(
+    policy_id: str,
+    version_number: int,
+    db: AsyncSession = Depends(get_db)
+) -> PolicyVersionPublic:
+    """Retrieve one snapshot by version number."""
+    try:
+        version = await get_policy_version(policy_id, version_number, db)
+        return PolicyVersionPublic.model_validate(version)
+    except PolicyVersionError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error(f"Error fetching policy version: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch version: {str(e)}"
+        )
+
+
+@router.post(
+    "/{policy_id}/versions/{version_number}/restore",
+    response_model=PolicyPublic,
+    summary="Restore Policy Version",
+    description="Restore a policy's metadata to a previous state. This also creates a snapshot of the current state before restoring."
+)
+async def restore_version(
+    policy_id: str,
+    version_number: int,
+    db: AsyncSession = Depends(get_db)
+) -> PolicyPublic:
+    """Restore policy to a previous version."""
+    try:
+        restored_policy = await restore_policy_version(policy_id, version_number, db)
+        return PolicyPublic.model_validate(restored_policy)
+    except PolicyVersionError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error(f"Error restoring policy version: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to restore version: {str(e)}"
         )
 
