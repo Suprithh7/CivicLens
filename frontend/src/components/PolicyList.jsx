@@ -5,12 +5,15 @@ import ErrorMessage from './common/ErrorMessage';
 import { usePolicies } from '../hooks/usePolicies';
 import { usePagination } from '../hooks/usePagination';
 import { ITEMS_PER_PAGE, POLICY_STATUS_OPTIONS, POLICY_TYPE_OPTIONS } from '../constants';
+import PolicyDetailModal from './PolicyDetailModal';
 
 /**
  * PolicyList Component
  * Displays a paginated, filterable list of uploaded policies
  */
 const PolicyList = () => {
+  const [selectedPolicy, setSelectedPolicy] = React.useState(null);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
   const {
     policies,
     loading,
@@ -29,9 +32,12 @@ const PolicyList = () => {
   const { totalPages, getPageNumbers } = usePagination(total, ITEMS_PER_PAGE);
 
   const handleView = (policy) => {
-    // For now, just log - we'll implement a modal or detail page later
-    console.log('View policy:', policy);
-    alert(`Viewing policy: ${policy.title || policy.filename}\n\nPolicy ID: ${policy.policy_id}\nStatus: ${policy.status}`);
+    setSelectedPolicy(policy);
+    setIsModalOpen(true);
+  };
+
+  const handlePolicyUpdated = () => {
+    fetchPolicies(); // Refresh list to get updated metadata/version
   };
 
   const onDelete = async (policy) => {
@@ -213,6 +219,14 @@ const PolicyList = () => {
           )}
         </>
       )}
+
+      {/* Policy Details Modal */}
+      <PolicyDetailModal
+        policy={selectedPolicy}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onPolicyUpdated={handlePolicyUpdated}
+      />
     </div>
   );
 };

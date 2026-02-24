@@ -139,6 +139,32 @@ export async function deletePolicy(policyId) {
 }
 
 /**
+ * Update policy metadata
+ */
+export async function updatePolicy(policyId, updateData) {
+  return fetchAPI(`/api/v1/policies/${policyId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updateData),
+  });
+}
+
+/**
+ * Get policy versions history
+ */
+export async function getPolicyVersions(policyId) {
+  return fetchAPI(`/api/v1/policies/${policyId}/versions`);
+}
+
+/**
+ * Restore a specific policy version
+ */
+export async function restorePolicyVersion(policyId, versionNumber) {
+  return fetchAPI(`/api/v1/policies/${policyId}/versions/${versionNumber}/restore`, {
+    method: 'POST',
+  });
+}
+
+/**
  * Submit (create/update) a user's eligibility profile
  */
 export async function submitEligibilityProfile(profileData) {
@@ -155,5 +181,8 @@ export default {
   listPolicies,
   getPolicyById,
   deletePolicy,
+  updatePolicy,
+  getPolicyVersions,
+  restorePolicyVersion,
   submitEligibilityProfile,
 };
