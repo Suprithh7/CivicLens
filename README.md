@@ -269,4 +269,5 @@ This isn't just a project—it's public infrastructure for government transparen
 
 ---
 
-**Built with ❤️ for citizens who deserve clarity, not complexity.**
+**Built with ❤️ for citizens who deserve clarity, not complexity.** 
+yes yes yes 
