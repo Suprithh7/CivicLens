@@ -184,7 +184,7 @@ def calculate_completeness_score(
     
     # Check length
     if len(answer) < min_length:
-        score -= 0.2  # Reduced penalty
+        score -= 0.3  # Stronger penalty for short answers
     
     # Check for vague responses
     vague_phrases = [
@@ -203,7 +203,9 @@ def calculate_completeness_score(
     if vague_count > 0:
         # Vague responses are acceptable if acknowledged properly
         if len(answer) < 100:
-            score -= 0.2  # Very short vague answer
+            score -= 0.4  # Very short vague answer — strong penalty
+        else:
+            score -= 0.1  # Longer vague hedging is less concerning
     
     # Check for structured information (lists, numbers, etc.)
     has_structure = bool(

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime
 import logging
+import asyncio
 
 from pypdf import PdfReader
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -182,9 +183,9 @@ async def process_policy_text_extraction(
     await db.refresh(processing_record)
     
     try:
-        # Extract text from PDF
+        # Extract text from PDF in a background thread to prevent blocking the event loop
         file_path = Path(policy.file_path)
-        extracted_text = extract_text_from_pdf(file_path)
+        extracted_text = await asyncio.to_thread(extract_text_from_pdf, file_path)
         
         # Store result
         result_data = {

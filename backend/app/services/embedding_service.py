@@ -7,10 +7,10 @@ import logging
 from typing import List, Dict, Optional
 from datetime import datetime
 import numpy as np
+import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from sentence_transformers import SentenceTransformer
 
 from app.models.policy import Policy, PolicyChunk, PolicyProcessing, ProcessingStage, ProcessingStatus
 from app.core.exceptions import CivicLensException
@@ -49,6 +49,8 @@ class EmbeddingModel:
         if self._model is None:
             logger.info(f"Loading embedding model: {model_name}")
             try:
+                # Lazy import to prevent PyTorch DLL errors during test collection
+                from sentence_transformers import SentenceTransformer
                 self._model = SentenceTransformer(model_name)
                 logger.info(f"Model loaded successfully. Embedding dimension: {self._model.get_sentence_embedding_dimension()}")
             except Exception as e:
@@ -258,8 +260,8 @@ async def process_policy_embeddings(
         
         logger.info(f"Generating embeddings for {len(chunk_texts)} chunks")
         
-        # Generate embeddings in batch
-        embeddings = generate_embeddings_batch(chunk_texts, batch_size=batch_size)
+        # Generate embeddings in batch in a background thread to avoid blocking the event loop
+        embeddings = await asyncio.to_thread(generate_embeddings_batch, chunk_texts, DEFAULT_MODEL, batch_size)
         
         # Update chunks with embeddings
         for chunk, embedding in zip(chunks, embeddings):

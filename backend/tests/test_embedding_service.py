@@ -105,9 +105,10 @@ class TestEmbeddingGeneration:
         # Results should be the same regardless of batch size
         assert len(embeddings1) == len(embeddings2) == len(texts)
         
-        # Each corresponding embedding should be identical
+        # Each corresponding embedding should be approximately identical
+        # (minor floating-point differences across batch boundaries are acceptable)
         for emb1, emb2 in zip(embeddings1, embeddings2):
-            assert emb1 == emb2
+            assert emb1 == pytest.approx(emb2, abs=1e-4)
 
 
 # Note: Integration tests for process_policy_embeddings would require

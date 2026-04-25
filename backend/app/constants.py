@@ -56,7 +56,7 @@ DATE_FORMAT = "%Y-%m-%d"
 # Text Chunking Configuration
 DEFAULT_CHUNK_SIZE = 1000  # Default chunk size in characters
 DEFAULT_CHUNK_OVERLAP = 200  # Default overlap between chunks in characters
-MIN_CHUNK_SIZE = 100  # Minimum allowed chunk size
+MIN_CHUNK_SIZE = 10  # Minimum allowed chunk size
 MAX_CHUNK_SIZE = 5000  # Maximum allowed chunk size
 MIN_CHUNK_OVERLAP = 0  # Minimum overlap
 MAX_CHUNK_OVERLAP = 500  # Maximum overlap

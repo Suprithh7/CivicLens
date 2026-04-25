@@ -179,12 +179,16 @@ def clear_cache(cache_type: str = "all") -> Dict:
     if cache_type in ["all", "simplification"]:
         size_before = len(_simplification_cache)
         _simplification_cache.clear()
+        _cache_stats["simplification_hits"] = 0
+        _cache_stats["simplification_misses"] = 0
         cleared.append(f"simplification ({size_before} entries)")
         logger.info(f"Cleared simplification cache ({size_before} entries)")
     
     if cache_type in ["all", "rag"]:
         size_before = len(_rag_cache)
         _rag_cache.clear()
+        _cache_stats["rag_hits"] = 0
+        _cache_stats["rag_misses"] = 0
         cleared.append(f"rag ({size_before} entries)")
         logger.info(f"Cleared RAG cache ({size_before} entries)")
     

@@ -197,4 +197,8 @@ async def test_version_not_found(client, sample_policy):
     policy_id = sample_policy.policy_id
     response = await client.get(f"/api/v1/policies/{policy_id}/versions/99")
     assert response.status_code == 404
-    assert "not found" in response.json()["detail"]["message"].lower()
+    response_data = response.json()
+    # The API uses a custom exception handler that wraps errors under "error" key
+    error_body = response_data.get("error") or response_data
+    message = error_body.get("message", "") or str(error_body)
+    assert "not found" in message.lower()

@@ -59,6 +59,17 @@ async def update_policy_metadata(
         logger.info(f"No metadata changes for policy {policy_id}, skipping version bump")
         return policy
 
+    # Check if the values actually differ from current policy state
+    actual_changes = {
+        key: value
+        for key, value in update_dict.items()
+        if getattr(policy, key, None) != value
+    }
+
+    if not actual_changes:
+        logger.info(f"Submitted values identical to current policy {policy_id}, skipping version bump")
+        return policy
+
     # Create snapshot of CURRENT version
     snapshot = PolicyVersion(
         policy_id=policy.id,
@@ -79,7 +90,7 @@ async def update_policy_metadata(
     db.add(snapshot)
     
     # Update policy metadata
-    for key, value in update_dict.items():
+    for key, value in actual_changes.items():
         if hasattr(policy, key):
             setattr(policy, key, value)
     
@@ -92,6 +103,7 @@ async def update_policy_metadata(
     
     logger.info(f"Updated policy {policy_id} to version {policy.version}")
     return policy
+
 
 
 async def list_policy_versions(

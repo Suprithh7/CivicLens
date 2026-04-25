@@ -5,6 +5,7 @@ Semantic search service using FAISS vector similarity.
 import logging
 from typing import List, Dict, Optional
 import numpy as np
+import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -66,8 +67,8 @@ async def semantic_search_policy(
                 details={"policy_id": policy_id}
             )
         
-        # Generate query embedding
-        query_embedding = generate_embedding(query)
+        # Generate query embedding in a background thread
+        query_embedding = await asyncio.to_thread(generate_embedding, query)
         query_vector = np.array(query_embedding, dtype='float32')
         
         # Search FAISS index
@@ -151,12 +152,12 @@ async def semantic_search_all(
         if not policies:
             return []
         
-        # Generate query embedding once
-        query_embedding = generate_embedding(query)
+        # Generate query embedding once in a background thread
+        query_embedding = await asyncio.to_thread(generate_embedding, query)
         query_vector = np.array(query_embedding, dtype='float32')
         
         # Search each policy's index
-        all_results = []
+        all_chunk_matches = [] # Track (chunk_id, distance, policy)
         manager = FAISSIndexManager()
         
         for policy in policies:
@@ -168,36 +169,47 @@ async def semantic_search_all(
                     top_k=top_k  # Get top_k from each policy
                 )
                 
-                # Fetch chunks
-                chunks_stmt = select(PolicyChunk).where(
-                    PolicyChunk.id.in_(chunk_ids)
-                )
-                chunks_result = await db.execute(chunks_stmt)
-                chunks_dict = {chunk.id: chunk for chunk in chunks_result.scalars().all()}
-                
-                # Add results
+                # Pair IDs with distances and keep track of policy
                 for chunk_id, distance in zip(chunk_ids, distances):
-                    if chunk_id in chunks_dict:
-                        chunk = chunks_dict[chunk_id]
-                        similarity_score = float(np.exp(-distance))
-                        
-                        all_results.append({
-                            "chunk_id": chunk.id,
-                            "chunk_index": chunk.chunk_index,
-                            "chunk_text": chunk.chunk_text,
-                            "similarity_score": similarity_score,
-                            "distance": float(distance),
-                            "policy_id": policy.policy_id,
-                            "policy_title": policy.title,
-                            "start_char": chunk.start_char,
-                            "end_char": chunk.end_char,
-                            "metadata": chunk.metadata_json
-                        })
-                
+                    all_chunk_matches.append((chunk_id, float(distance), policy))
+                    
             except FAISSError as e:
                 # Skip policies without indices
                 logger.warning(f"Skipping policy {policy.policy_id}: {str(e)}")
                 continue
+                
+        if not all_chunk_matches:
+            return []
+            
+        # Get all chunk IDs
+        all_chunk_ids = [match[0] for match in all_chunk_matches]
+        
+        # Fetch ALL chunks in a single query
+        chunks_stmt = select(PolicyChunk).where(
+            PolicyChunk.id.in_(all_chunk_ids)
+        )
+        chunks_result = await db.execute(chunks_stmt)
+        chunks_dict = {chunk.id: chunk for chunk in chunks_result.scalars().all()}
+        
+        # Build results
+        all_results = []
+        for chunk_id, distance, policy in all_chunk_matches:
+            if chunk_id in chunks_dict:
+                chunk = chunks_dict[chunk_id]
+                similarity_score = float(np.exp(-distance))
+                
+                all_results.append({
+                    "chunk_id": chunk.id,
+                    "chunk_index": chunk.chunk_index,
+                    "chunk_text": chunk.chunk_text,
+                    "similarity_score": similarity_score,
+                    "distance": distance,
+                    "policy_id": policy.policy_id,
+                    "policy_title": policy.title,
+                    "start_char": chunk.start_char,
+                    "end_char": chunk.end_char,
+                    "metadata": chunk.metadata_json
+                })
         
         # Sort all results by similarity score (descending)
         all_results.sort(key=lambda x: x["similarity_score"], reverse=True)

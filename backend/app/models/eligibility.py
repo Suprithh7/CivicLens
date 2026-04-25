@@ -7,7 +7,7 @@ citizen qualifies for a government program described in an uploaded policy.
 
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, Boolean,
-    Float, Index, JSON, Enum as SQLEnum
+    Float, Index, JSON, ForeignKey, Enum as SQLEnum
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -227,6 +227,7 @@ class EligibilityCheck(Base):
     # Foreign key to the user profile
     profile_id = Column(
         Integer,
+        ForeignKey("user_eligibility_profiles.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )

@@ -9,6 +9,7 @@ from datetime import datetime
 from dataclasses import dataclass
 import logging
 import re
+import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -289,8 +290,8 @@ async def process_policy_chunking(
     await db.refresh(processing_record)
     
     try:
-        # Chunk the text
-        chunks = chunk_text(extracted_text, chunk_size=chunk_size, overlap=overlap)
+        # Chunk the text in a background thread to prevent blocking the event loop
+        chunks = await asyncio.to_thread(chunk_text, extracted_text, chunk_size, overlap)
         
         # Store chunks in database
         db_chunks = []

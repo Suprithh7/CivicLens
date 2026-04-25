@@ -74,3 +74,14 @@ uploads/
 
 # Generated files
 *.pdf
+
+# Test output files
+backend/test_results*.txt
+backend/pytest_output.txt
+
+# Debug / scratch scripts
+backend/debug_mappers.py
+backend/run_test_catch.py
+
+# Pytest cache
+.pytest_cache/
